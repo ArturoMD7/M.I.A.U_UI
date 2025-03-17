@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'custom_app_bar.dart';
 
 class MessagesScreen extends StatelessWidget {
+  const MessagesScreen({super.key});
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -51,13 +53,17 @@ class MessagesScreen extends StatelessWidget {
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
       elevation: 2,
       child: ListTile(
-        leading: CircleAvatar(
-          backgroundImage: AssetImage(avatar),
-          radius: 25,
-        ),
+        leading: CircleAvatar(backgroundImage: AssetImage(avatar), radius: 25),
         title: Text(name, style: TextStyle(fontWeight: FontWeight.bold)),
-        subtitle: Text(lastMessage, maxLines: 1, overflow: TextOverflow.ellipsis),
-        trailing: Text(time, style: TextStyle(color: Colors.grey, fontSize: 12)),
+        subtitle: Text(
+          lastMessage,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+        ),
+        trailing: Text(
+          time,
+          style: TextStyle(color: Colors.grey, fontSize: 12),
+        ),
         onTap: onTap,
       ),
     );

@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'custom_app_bar.dart';
 
 class QRScreen extends StatelessWidget {
+  const QRScreen({super.key});
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -41,7 +43,10 @@ class QRScreen extends StatelessWidget {
                 minimumSize: Size(double.infinity, 50),
               ),
               onPressed: () {},
-              child: Text("Escanear QR", style: TextStyle(fontSize: 16, color: Colors.white)),
+              child: Text(
+                "Escanear QR",
+                style: TextStyle(fontSize: 16, color: Colors.white),
+              ),
             ),
             SizedBox(height: 10),
             ElevatedButton(
@@ -50,7 +55,10 @@ class QRScreen extends StatelessWidget {
                 minimumSize: Size(double.infinity, 50),
               ),
               onPressed: () {},
-              child: Text("Generar QR", style: TextStyle(fontSize: 16, color: Colors.white)),
+              child: Text(
+                "Generar QR",
+                style: TextStyle(fontSize: 16, color: Colors.white),
+              ),
             ),
             SizedBox(height: 10),
             Text(
@@ -60,16 +68,13 @@ class QRScreen extends StatelessWidget {
             SizedBox(height: 10),
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceAround,
-              children: [
-                _customButton("Firulais"),
-                _customButton("Ver QR")
-              ],
+              children: [_customButton("Firulais"), _customButton("Ver QR")],
             ),
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceAround,
               children: [
                 _customButton("Editar Info"),
-                _customButton("Borrar QR", isDelete: true)
+                _customButton("Borrar QR", isDelete: true),
               ],
             ),
           ],

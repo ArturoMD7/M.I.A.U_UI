@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'custom_app_bar.dart';
 
 class AdoptScreen extends StatefulWidget {
+  const AdoptScreen({super.key});
+
   @override
   _AdoptScreenState createState() => _AdoptScreenState();
 }
@@ -56,12 +58,13 @@ class _AdoptScreenState extends State<AdoptScreen> {
                 DropdownButton<String>(
                   hint: Text("Tamaño"),
                   value: selectedSize,
-                  items: ["Pequeño", "Mediano", "Grande"].map((String value) {
-                    return DropdownMenuItem<String>(
-                      value: value,
-                      child: Text(value),
-                    );
-                  }).toList(),
+                  items:
+                      ["Pequeño", "Mediano", "Grande"].map((String value) {
+                        return DropdownMenuItem<String>(
+                          value: value,
+                          child: Text(value),
+                        );
+                      }).toList(),
                   onChanged: (newValue) {
                     setState(() {
                       selectedSize = newValue;
@@ -71,12 +74,13 @@ class _AdoptScreenState extends State<AdoptScreen> {
                 DropdownButton<String>(
                   hint: Text("Edad"),
                   value: selectedAge,
-                  items: ["Cachorro", "Joven", "Adulto"].map((String value) {
-                    return DropdownMenuItem<String>(
-                      value: value,
-                      child: Text(value),
-                    );
-                  }).toList(),
+                  items:
+                      ["Cachorro", "Joven", "Adulto"].map((String value) {
+                        return DropdownMenuItem<String>(
+                          value: value,
+                          child: Text(value),
+                        );
+                      }).toList(),
                   onChanged: (newValue) {
                     setState(() {
                       selectedAge = newValue;
@@ -86,12 +90,13 @@ class _AdoptScreenState extends State<AdoptScreen> {
                 DropdownButton<String>(
                   hint: Text("Pelaje"),
                   value: selectedFur,
-                  items: ["Corto", "Medio", "Largo"].map((String value) {
-                    return DropdownMenuItem<String>(
-                      value: value,
-                      child: Text(value),
-                    );
-                  }).toList(),
+                  items:
+                      ["Corto", "Medio", "Largo"].map((String value) {
+                        return DropdownMenuItem<String>(
+                          value: value,
+                          child: Text(value),
+                        );
+                      }).toList(),
                   onChanged: (newValue) {
                     setState(() {
                       selectedFur = newValue;
@@ -101,12 +106,13 @@ class _AdoptScreenState extends State<AdoptScreen> {
                 DropdownButton<String>(
                   hint: Text("Vacunas"),
                   value: selectedVaccination,
-                  items: ["Sí", "No"].map((String value) {
-                    return DropdownMenuItem<String>(
-                      value: value,
-                      child: Text(value),
-                    );
-                  }).toList(),
+                  items:
+                      ["Sí", "No"].map((String value) {
+                        return DropdownMenuItem<String>(
+                          value: value,
+                          child: Text(value),
+                        );
+                      }).toList(),
                   onChanged: (newValue) {
                     setState(() {
                       selectedVaccination = newValue;
@@ -116,12 +122,13 @@ class _AdoptScreenState extends State<AdoptScreen> {
                 DropdownButton<String>(
                   hint: Text("Esterilizado"),
                   value: selectedSterilized,
-                  items: ["Sí", "No"].map((String value) {
-                    return DropdownMenuItem<String>(
-                      value: value,
-                      child: Text(value),
-                    );
-                  }).toList(),
+                  items:
+                      ["Sí", "No"].map((String value) {
+                        return DropdownMenuItem<String>(
+                          value: value,
+                          child: Text(value),
+                        );
+                      }).toList(),
                   onChanged: (newValue) {
                     setState(() {
                       selectedSterilized = newValue;
@@ -143,15 +150,29 @@ class _AdoptScreenState extends State<AdoptScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Image.asset(pet["image"]!, fit: BoxFit.cover, height: 200, width: double.infinity),
+                      Image.asset(
+                        pet["image"]!,
+                        fit: BoxFit.cover,
+                        height: 200,
+                        width: double.infinity,
+                      ),
                       Padding(
                         padding: EdgeInsets.all(10),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text(pet["owner"]!, style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                            Text(
+                              pet["owner"]!,
+                              style: TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
                             SizedBox(height: 5),
-                            Text(pet["description"]!, style: TextStyle(fontSize: 14)),
+                            Text(
+                              pet["description"]!,
+                              style: TextStyle(fontSize: 14),
+                            ),
                             SizedBox(height: 10),
                             Row(
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -162,12 +183,15 @@ class _AdoptScreenState extends State<AdoptScreen> {
                                   onPressed: () {},
                                 ),
                                 TextButton.icon(
-                                  icon: Icon(Icons.message, color: Colors.green),
+                                  icon: Icon(
+                                    Icons.message,
+                                    color: Colors.green,
+                                  ),
                                   label: Text("Enviar mensaje"),
                                   onPressed: () {},
                                 ),
                               ],
-                            )
+                            ),
                           ],
                         ),
                       ),

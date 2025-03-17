@@ -12,7 +12,8 @@ import 'screens/notifications_screen.dart';
 import 'screens/messages_screen.dart';
 
 // Colores principales
-const Color primaryColor = Colors.blueAccent; // Puedes cambiarlo según el diseño
+const Color primaryColor =
+    Colors.blueAccent; // Puedes cambiarlo según el diseño
 const Color backgroundColor = Colors.white;
 const Color textColor = Colors.black;
 const Color accentColor = Colors.blue; // Para botones y elementos destacados
@@ -24,21 +25,17 @@ final TextStyle titleStyle = TextStyle(
   color: textColor,
 );
 
-final TextStyle subtitleStyle = TextStyle(
-  fontSize: 16,
-  color: textColor,
-);
+final TextStyle subtitleStyle = TextStyle(fontSize: 16, color: textColor);
 
-final TextStyle buttonTextStyle = TextStyle(
-  fontSize: 18,
-  color: Colors.white,
-);
+final TextStyle buttonTextStyle = TextStyle(fontSize: 18, color: Colors.white);
 
 void main() {
   runApp(MyApp());
 }
 
 class MyApp extends StatelessWidget {
+  const MyApp({super.key});
+
   @override
   Widget build(BuildContext context) {
     return MaterialApp(

@@ -2,17 +2,23 @@ import 'package:flutter/material.dart';
 import 'custom_app_bar.dart';
 
 // Colores principales
-const Color primaryColor = Color(0xFFD0894B); // Color marrón claro similar al de la imagen
+const Color primaryColor = Color(
+  0xFFD0894B,
+); // Color marrón claro similar al de la imagen
 const Color textColor = Colors.black;
 const Color iconColor = Colors.black;
 
 class HomeScreen extends StatelessWidget {
+  const HomeScreen({super.key});
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: PreferredSize(
-        preferredSize: Size.fromHeight(100), // Aumentamos la altura de la barra para acomodar dos filas
+        preferredSize: Size.fromHeight(
+          100,
+        ), // Aumentamos la altura de la barra para acomodar dos filas
         child: AppBar(
           backgroundColor: primaryColor,
           elevation: 0,

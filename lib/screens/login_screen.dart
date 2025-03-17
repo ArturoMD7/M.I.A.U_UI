@@ -1,4 +1,9 @@
 import 'package:flutter/material.dart';
+import 'dart:convert';
+import 'package:http/http.dart' as http;
+
+const String loginUrl =
+    "http://192.168.1.95:8000/api/users/login/"; // Ruta de login en el backend
 
 // Colores principales
 const Color primaryColor = Color(0xFFD68F5E); // Naranja similar al de la imagen
@@ -13,17 +18,67 @@ final TextStyle titleStyle = TextStyle(
   color: textColor,
 );
 
-final TextStyle subtitleStyle = TextStyle(
-  fontSize: 18,
-  color: textColor,
-);
+final TextStyle subtitleStyle = TextStyle(fontSize: 18, color: textColor);
 
-final TextStyle buttonTextStyle = TextStyle(
-  fontSize: 18,
-  color: Colors.white,
-);
+final TextStyle buttonTextStyle = TextStyle(fontSize: 18, color: Colors.white);
 
-class LoginScreen extends StatelessWidget {
+class LoginScreen extends StatefulWidget {
+  const LoginScreen({super.key});
+
+  @override
+  _LoginScreenState createState() => _LoginScreenState();
+}
+
+class _LoginScreenState extends State<LoginScreen> {
+  final _formKey = GlobalKey<FormState>();
+  final TextEditingController emailController = TextEditingController();
+  final TextEditingController passwordController = TextEditingController();
+
+  bool isLoading = false;
+
+  Future<void> loginUser() async {
+    if (!_formKey.currentState!.validate()) return;
+
+    setState(() {
+      isLoading = true;
+    });
+
+    try {
+      final response = await http.post(
+        Uri.parse(loginUrl),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'email': emailController.text,
+          'password': passwordController.text,
+        }),
+      );
+
+      setState(() {
+        isLoading = false;
+      });
+
+      if (response.statusCode == 200) {
+        // Si el login es exitoso, redirige a la pantalla de inicio
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Inicio de sesión exitoso')));
+        Navigator.pushNamed(context, '/lost-pets');
+      } else {
+        // Si hay un error, muestra el mensaje de error
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Error: ${response.body}')));
+      }
+    } catch (e) {
+      setState(() {
+        isLoading = false;
+      });
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Error de conexión: $e')));
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -31,92 +86,106 @@ class LoginScreen extends StatelessWidget {
       body: Center(
         child: Padding(
           padding: const EdgeInsets.all(20.0),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Container(
-                width: 200,
-                height: 200,
-                decoration: BoxDecoration(
-                  color: primaryColor,
-                  borderRadius: BorderRadius.circular(100),
-                ),
-                child: Center(
-                  child: Image.asset(
-                    'assets/images/logomiau.png', // Ruta de la imagen
-                    width: 140, // Ajusta el tamaño según necesites
-                    height: 140,
-                    fit: BoxFit.contain, // Para que la imagen no se recorte
+          child: Form(
+            key: _formKey,
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Container(
+                  width: 200,
+                  height: 200,
+                  decoration: BoxDecoration(
+                    color: primaryColor,
+                    borderRadius: BorderRadius.circular(100),
+                  ),
+                  child: Center(
+                    child: Image.asset(
+                      'assets/images/logomiau.png', // Ruta de la imagen
+                      width: 140, // Ajusta el tamaño según necesites
+                      height: 140,
+                      fit: BoxFit.contain, // Para que la imagen no se recorte
+                    ),
                   ),
                 ),
-              ),
-              SizedBox(height: 20),
-              Text(
-                "M.I.A.U",
-                style: titleStyle,
-              ),
-              SizedBox(height: 10),
-              Text(
-                "Iniciar sesión",
-                style: subtitleStyle,
-              ),
-              SizedBox(height: 20),
-              TextField(
-                decoration: InputDecoration(
-                  labelText: "Correo electrónico / Número de teléfono",
-                  border: OutlineInputBorder(),
-                ),
-              ),
-              SizedBox(height: 10),
-              TextField(
-                obscureText: true,
-                decoration: InputDecoration(
-                  labelText: "Contraseña",
-                  border: OutlineInputBorder(),
-                ),
-              ),
-              SizedBox(height: 10),
-              Align(
-                alignment: Alignment.centerRight,
-                child: TextButton(
-                  onPressed: () {},
-                  child: Text(
-                    "¿Olvidaste tu contraseña?",
-                    style: TextStyle(color: accentColor),
+                SizedBox(height: 20),
+                Text("M.I.A.U", style: titleStyle),
+                SizedBox(height: 10),
+                Text("Iniciar sesión", style: subtitleStyle),
+                SizedBox(height: 20),
+                TextFormField(
+                  controller: emailController,
+                  decoration: InputDecoration(
+                    labelText: "Correo electrónico",
+                    border: OutlineInputBorder(),
                   ),
+                  validator: (value) {
+                    if (value == null || value.isEmpty) {
+                      return "Ingresa tu correo electrónico";
+                    }
+                    if (!value.contains('@')) {
+                      return "Ingresa un correo válido";
+                    }
+                    return null;
+                  },
                 ),
-              ),
-              SizedBox(height: 20),
-              ElevatedButton(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: primaryColor,
-                  padding: EdgeInsets.symmetric(horizontal: 50, vertical: 15),
+                SizedBox(height: 10),
+                TextFormField(
+                  controller: passwordController,
+                  obscureText: true,
+                  decoration: InputDecoration(
+                    labelText: "Contraseña",
+                    border: OutlineInputBorder(),
+                  ),
+                  validator: (value) {
+                    if (value == null || value.isEmpty) {
+                      return "Ingresa tu contraseña";
+                    }
+                    return null;
+                  },
                 ),
-                onPressed: () {
-                  Navigator.pushNamed(context, '/lost-pets');
-                },
-                child: Text(
-                  "Iniciar Sesión",
-                  style: buttonTextStyle,
-                ),
-              ),
-              SizedBox(height: 20),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Text("¿No tienes cuenta?"),
-                  TextButton(
-                    onPressed: () {
-                      Navigator.pushNamed(context, '/register');
-                    },
+                SizedBox(height: 10),
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: TextButton(
+                    onPressed: () {},
                     child: Text(
-                      "regístrate",
+                      "¿Olvidaste tu contraseña?",
                       style: TextStyle(color: accentColor),
                     ),
                   ),
-                ],
-              ),
-            ],
+                ),
+                SizedBox(height: 20),
+                isLoading
+                    ? CircularProgressIndicator()
+                    : ElevatedButton(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: primaryColor,
+                        padding: EdgeInsets.symmetric(
+                          horizontal: 50,
+                          vertical: 15,
+                        ),
+                      ),
+                      onPressed: loginUser,
+                      child: Text("Iniciar Sesión", style: buttonTextStyle),
+                    ),
+                SizedBox(height: 20),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text("¿No tienes cuenta?"),
+                    TextButton(
+                      onPressed: () {
+                        Navigator.pushNamed(context, '/register');
+                      },
+                      child: Text(
+                        "Regístrate",
+                        style: TextStyle(color: accentColor),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
           ),
         ),
       ),

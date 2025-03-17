@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'custom_app_bar.dart';
 
 class PetIdScreen extends StatelessWidget {
+  const PetIdScreen({super.key});
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(

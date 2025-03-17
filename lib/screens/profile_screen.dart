@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
 import 'custom_app_bar.dart';
+
 const Color primaryColor = Color(0xFFD0894B);
 
 class ProfileScreen extends StatelessWidget {
+  const ProfileScreen({super.key});
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -41,7 +44,10 @@ class ProfileScreen extends StatelessWidget {
                 minimumSize: Size(double.infinity, 50),
                 backgroundColor: Colors.teal,
               ),
-              child: Text("Vista Previa", style: TextStyle(fontSize: 16, color: Colors.white)),
+              child: Text(
+                "Vista Previa",
+                style: TextStyle(fontSize: 16, color: Colors.white),
+              ),
             ),
             SizedBox(height: 10),
             ElevatedButton(
@@ -52,7 +58,10 @@ class ProfileScreen extends StatelessWidget {
                 minimumSize: Size(double.infinity, 50),
                 backgroundColor: Colors.teal,
               ),
-              child: Text("Mis publicaciónes", style: TextStyle(fontSize: 16, color: Colors.white)),
+              child: Text(
+                "Mis publicaciónes",
+                style: TextStyle(fontSize: 16, color: Colors.white),
+              ),
             ),
             SizedBox(height: 10),
             ElevatedButton(
@@ -63,7 +72,10 @@ class ProfileScreen extends StatelessWidget {
                 minimumSize: Size(double.infinity, 50),
                 backgroundColor: Colors.teal,
               ),
-              child: Text("Editar Información", style: TextStyle(fontSize: 16, color: Colors.white)),
+              child: Text(
+                "Editar Información",
+                style: TextStyle(fontSize: 16, color: Colors.white),
+              ),
             ),
             SizedBox(height: 10),
             ElevatedButton(
@@ -74,7 +86,10 @@ class ProfileScreen extends StatelessWidget {
                 minimumSize: Size(double.infinity, 50),
                 backgroundColor: Colors.teal,
               ),
-              child: Text("Ir a Mensajes", style: TextStyle(fontSize: 16, color: Colors.white)),
+              child: Text(
+                "Ir a Mensajes",
+                style: TextStyle(fontSize: 16, color: Colors.white),
+              ),
             ),
             SizedBox(height: 10),
             ElevatedButton(
@@ -85,7 +100,10 @@ class ProfileScreen extends StatelessWidget {
                 minimumSize: Size(double.infinity, 50),
                 backgroundColor: primaryColor,
               ),
-              child: Text("Cerrar Sesión", style: TextStyle(fontSize: 16, color: Colors.black)),
+              child: Text(
+                "Cerrar Sesión",
+                style: TextStyle(fontSize: 16, color: Colors.black),
+              ),
             ),
             SizedBox(height: 10),
             ElevatedButton(
@@ -96,7 +114,10 @@ class ProfileScreen extends StatelessWidget {
                 minimumSize: Size(double.infinity, 50),
                 backgroundColor: primaryColor,
               ),
-              child: Text("Eliminar Cuenta", style: TextStyle(fontSize: 16, color: Colors.black)),
+              child: Text(
+                "Eliminar Cuenta",
+                style: TextStyle(fontSize: 16, color: Colors.black),
+              ),
             ),
           ],
         ),

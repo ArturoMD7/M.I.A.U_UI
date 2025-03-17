@@ -1,12 +1,16 @@
 import 'package:flutter/material.dart';
 
 // Colores principales
-const Color primaryColor = Color(0xFFD0894B); // Color marrón claro similar al de la imagen
+const Color primaryColor = Color(
+  0xFFD0894B,
+); // Color marrón claro similar al de la imagen
 const Color iconColor = Colors.black;
 
 class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
   @override
-  final Size preferredSize = Size.fromHeight(100); // Altura de la barra
+  final Size preferredSize = Size.fromHeight(100);
+
+  CustomAppBar({super.key}); // Altura de la barra
 
   @override
   Widget build(BuildContext context) {
@@ -23,13 +27,19 @@ class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
               IconButton(
                 icon: Icon(Icons.chat_bubble_outline, color: iconColor),
                 onPressed: () {
-                  Navigator.pushNamed(context, '/messages'); // Navegar a mensajes
+                  Navigator.pushNamed(
+                    context,
+                    '/messages',
+                  ); // Navegar a mensajes
                 },
               ),
               IconButton(
                 icon: Icon(Icons.notifications_none, color: iconColor),
                 onPressed: () {
-                  Navigator.pushNamed(context, '/notifications'); // Navegar a notificaciones
+                  Navigator.pushNamed(
+                    context,
+                    '/notifications',
+                  ); // Navegar a notificaciones
                 },
               ),
               SizedBox(width: 10),
@@ -46,7 +56,10 @@ class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
                   height: 30,
                 ),
                 onPressed: () {
-                  Navigator.pushNamed(context, '/lost-pets'); // Navegar a mascotas perdidas
+                  Navigator.pushNamed(
+                    context,
+                    '/lost-pets',
+                  ); // Navegar a mascotas perdidas
                 },
               ),
               IconButton(
@@ -56,7 +69,10 @@ class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
                   height: 30,
                 ),
                 onPressed: () {
-                  Navigator.pushNamed(context, '/adopt'); // Navegar a mascotas perdidas
+                  Navigator.pushNamed(
+                    context,
+                    '/adopt',
+                  ); // Navegar a mascotas perdidas
                 },
               ),
               IconButton(
@@ -74,7 +90,10 @@ class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
               IconButton(
                 icon: Icon(Icons.article, color: iconColor), // Documentos
                 onPressed: () {
-                  Navigator.pushNamed(context, '/pet-id'); // Navegar a documentos
+                  Navigator.pushNamed(
+                    context,
+                    '/pet-id',
+                  ); // Navegar a documentos
                 },
               ),
               IconButton(
