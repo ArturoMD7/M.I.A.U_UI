@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'custom_app_bar.dart';
 
 // Colores principales
 const Color primaryColor = Color(

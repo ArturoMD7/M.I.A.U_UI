@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'screens/login_screen.dart';
 import 'screens/register_screen.dart';
-import 'screens/home_screen.dart';
 import 'screens/lost_pets_screen.dart';
 import 'screens/adopt_screen.dart';
 import 'screens/qr_screen.dart';
@@ -56,6 +55,7 @@ class MyApp extends StatelessWidget {
         '/support': (context) => SupportScreen(),
         '/notifications': (context) => NotificationsScreen(),
         '/messages': (context) => MessagesScreen(),
+        '/edit-profile': (context) => EditProfileScreen(), // Nueva ruta
       },
     );
   }
