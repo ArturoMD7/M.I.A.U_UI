@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
+import 'package:shared_preferences/shared_preferences.dart';
 
 const String loginUrl =
     "http://192.168.1.95:8000/api/users/login/"; // Ruta de login en el backend
@@ -58,7 +59,16 @@ class _LoginScreenState extends State<LoginScreen> {
       });
 
       if (response.statusCode == 200) {
-        // Si el login es exitoso, redirige a la pantalla de inicio
+        // Si el login es exitoso, guarda el access token y el refresh token
+        final Map<String, dynamic> responseData = jsonDecode(response.body);
+        final String accessToken = responseData['access'];
+        final String refreshToken = responseData['refresh'];
+
+        // Guardar los tokens en SharedPreferences
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setString('jwt_token', accessToken);
+        await prefs.setString('refresh_token', refreshToken);
+
         ScaffoldMessenger.of(
           context,
         ).showSnackBar(SnackBar(content: Text('Inicio de sesión exitoso')));

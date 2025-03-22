@@ -39,11 +39,12 @@ dependencies:
   qr_code_scanner: ^1.0.1
   http: ^1.3.0
   path_provider: ^2.1.5
+  provider: ^6.0.0
+  shared_preferences: ^2.2.2
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
-  provider: ^6.1.2  # Para manejar estado si lo necesitas
   cached_network_image: ^3.3.1 
   flutter_pdfview: ^1.0.0+17
   barcode_scan2: ^4.5.0
