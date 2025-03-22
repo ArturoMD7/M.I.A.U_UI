@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'custom_app_bar.dart';
 
 class NotificationsScreen extends StatelessWidget {
+  const NotificationsScreen({super.key});
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -63,11 +65,13 @@ final List<Map<String, dynamic>> notifications = [
   {
     "icon": Icons.pets,
     "title": "AYUDA, SE HA PERDIDO UNA MASCOTA CERCA DE TU CASA",
-    "subtitle": "Un perrito fue visto por última vez en tu zona. ¡Revisa la publicación!",
+    "subtitle":
+        "Un perrito fue visto por última vez en tu zona. ¡Revisa la publicación!",
   },
   {
     "icon": Icons.favorite,
     "title": "HEMOS ENCONTRADO UNA MASCOTA PARA TI",
-    "subtitle": "Un rescatista ha encontrado una mascota que puede interesarte.",
+    "subtitle":
+        "Un rescatista ha encontrado una mascota que puede interesarte.",
   },
 ];
