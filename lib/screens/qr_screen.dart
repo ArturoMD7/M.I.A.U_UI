@@ -24,7 +24,7 @@ class _QRScreenState extends State<QRScreen> {
   }
 
   Future<void> fetchMyQRs() async {
-    const String qrUrl = "http://192.168.1.95:8000/api/qr/";
+    const String qrUrl = "http://192.168.1.64:8000/api/qr/";
 
     try {
       final response = await http.get(Uri.parse(qrUrl));
@@ -48,7 +48,7 @@ class _QRScreenState extends State<QRScreen> {
   }
 
   Future<void> generateQR() async {
-    const String createQRUrl = "http://192.168.1.95:8000/api/qr/create/";
+    const String createQRUrl = "http://192.168.1.64:8000/api/qr/create/";
 
     // Datos necesarios para crear el QR
     Map<String, dynamic> qrData = {

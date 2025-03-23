@@ -4,7 +4,7 @@ import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
 const String loginUrl =
-    "http://192.168.1.95:8000/api/users/login/"; // Ruta de login en el backend
+    "http://192.168.1.64:8000/api/users/login/"; // Ruta de login en el backend
 
 // Colores principales
 const Color primaryColor = Color(0xFFD68F5E); // Naranja similar al de la imagen
