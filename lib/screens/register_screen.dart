@@ -3,7 +3,7 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 
 const String baseUrl =
-    "http://192.168.1.95:8000/api/users/signup/"; // Asegúrate de que termine con /
+    "http://192.168.1.64:8000/api/users/signup/"; // Asegúrate de que termine con /
 
 // Colores principales
 const Color primaryColor = Color(0xFFD4915D); // Naranja suave

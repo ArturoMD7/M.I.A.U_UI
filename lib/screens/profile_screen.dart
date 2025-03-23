@@ -26,7 +26,7 @@ class ProfileScreen extends StatelessWidget {
 
   // Función para cerrar sesión
   Future<void> logout(BuildContext context) async {
-    const String logoutUrl = "http://192.168.1.95:8000/api/users/logout/";
+    const String logoutUrl = "http://192.168.1.64:8000/api/users/logout/";
 
     try {
       final token = await getToken();
@@ -60,7 +60,7 @@ class ProfileScreen extends StatelessWidget {
 
   // Función para eliminar la cuenta
   Future<void> deleteAccount(BuildContext context) async {
-    const String deleteUrl = "http://192.168.1.95:8000/api/users/delete/1/";
+    const String deleteUrl = "http://192.168.1.64:8000/api/users/delete/1/";
 
     try {
       final token = await getToken();
@@ -92,7 +92,7 @@ class ProfileScreen extends StatelessWidget {
 
   // Función para obtener la información del usuario actual
   Future<Map<String, dynamic>> fetchUserInfo(BuildContext context) async {
-    const String userInfoUrl = "http://192.168.1.95:8000/api/users/me/";
+    const String userInfoUrl = "http://192.168.1.64:8000/api/users/me/";
 
     try {
       final token = await getToken();
@@ -154,7 +154,7 @@ class ProfileScreen extends StatelessWidget {
   }
 
   Future<String?> refreshToken(BuildContext context) async {
-    const String refreshUrl = "http://192.168.1.95:8000/api/token/refresh/";
+    const String refreshUrl = "http://192.168.1.64:8000/api/token/refresh/";
     final prefs = await SharedPreferences.getInstance();
     final refreshToken = prefs.getString('refresh_token');
 
@@ -370,7 +370,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
 
   Future<void> _updateUserInfo() async {
     final String updateUrl =
-        "http://192.168.1.95:8000/api/users/update/${widget.userInfo['id']}/";
+        "http://192.168.1.64:8000/api/users/update/${widget.userInfo['id']}/";
 
     final Map<String, dynamic> updatedData = {
       'name': _nameController.text,
