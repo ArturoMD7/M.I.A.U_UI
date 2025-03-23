@@ -36,6 +36,7 @@ class _AdoptScreenState extends State<AdoptScreen> {
     const String postsUrl = "$baseUrl/api/posts/";
     const String petsUrl = "$baseUrl/api/pets/";
     const String imgsUrl = "$baseUrl/api/imgs-post/";
+    const String usersUrl = "$baseUrl/api/users/"; // Nueva URL para obtener usuarios
 
     // Recuperar el token JWT
     final SharedPreferences prefs = await SharedPreferences.getInstance();
@@ -65,19 +66,26 @@ class _AdoptScreenState extends State<AdoptScreen> {
         headers: {"Authorization": "Bearer $token"},
       );
 
+      final usersResponse = await http.get(
+        Uri.parse(usersUrl),
+        headers: {"Authorization": "Bearer $token"},
+      );
+
       if (postsResponse.statusCode == 200 &&
           petsResponse.statusCode == 200 &&
-          imgsResponse.statusCode == 200) {
+          imgsResponse.statusCode == 200 &&
+          usersResponse.statusCode == 200) {
         final List<dynamic> postsData = jsonDecode(postsResponse.body);
         final List<dynamic> petsData = jsonDecode(petsResponse.body);
         final List<dynamic> imgsData = jsonDecode(imgsResponse.body);
+        final List<dynamic> usersData = jsonDecode(usersResponse.body);
 
         // Filtrar solo mascotas en adopción (statusAdoption = 2)
         final filteredPosts = postsData
             .where((post) {
           final petId = post['petId'];
           final pet = petsData.firstWhere(
-                (pet) => pet['id'] == petId && pet['statusAdoption'] == 2, // Cambiado a 2 (LOOKING)
+                (pet) => pet['id'] == petId && pet['statusAdoption'] == 2,
             orElse: () => null,
           );
           return pet != null;
@@ -87,7 +95,9 @@ class _AdoptScreenState extends State<AdoptScreen> {
           final pet = petsData.firstWhere((pet) => pet['id'] == petId);
           final postImages =
           imgsData.where((img) => img['idPost'] == post['id']).toList();
-          return {...post, 'pet': pet, 'images': postImages};
+          final userId = post['userId'];
+          final user = usersData.firstWhere((user) => user['id'] == userId, orElse: () => null);
+          return {...post, 'pet': pet, 'images': postImages, 'user': user};
         })
             .toList();
 
@@ -121,11 +131,12 @@ class _AdoptScreenState extends State<AdoptScreen> {
     const String postUrl = "$baseUrl/api/posts/";
     const String imgUrl = "$baseUrl/api/imgs-post/";
 
-    // Recuperar el token JWT
+    // Recuperar el token JWT y el userId
     final SharedPreferences prefs = await SharedPreferences.getInstance();
     final String? token = prefs.getString('jwt_token');
+    final int? userId = prefs.getInt('user_id'); // Recuperar el userId
 
-    if (token == null) {
+    if (token == null || userId == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text("No estás autenticado. Inicia sesión primero.")),
       );
@@ -150,7 +161,7 @@ class _AdoptScreenState extends State<AdoptScreen> {
           "breed": breed,
           "size": size,
           "petDetails": details,
-          "userId": 1,
+          "userId": userId, // Usar el userId del usuario autenticado
           "statusAdoption": 2, // Cambiado a 2 (LOOKING)
           "qrId": 1,
         }),
@@ -175,7 +186,7 @@ class _AdoptScreenState extends State<AdoptScreen> {
             "description": description,
             "postDate": formattedDate,
             "petId": petId,
-            "userId": 1,
+            "userId": userId, // Usar el userId del usuario autenticado
           }),
         );
 
@@ -440,6 +451,7 @@ class _AdoptScreenState extends State<AdoptScreen> {
                 final post = posts[index];
                 final pet = post['pet'];
                 final images = post['images'] as List<dynamic>;
+                final user = post['user'];
 
                 return Card(
                   elevation: 3,
@@ -447,6 +459,29 @@ class _AdoptScreenState extends State<AdoptScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
+                      // Mostrar el nombre y la foto del usuario
+                      Padding(
+                        padding: const EdgeInsets.all(10),
+                        child: Row(
+                          children: [
+                            CircleAvatar(
+                              backgroundImage: user != null && user['profilePhoto'] != null
+                                  ? NetworkImage("$baseUrl${user['profilePhoto']}")
+                                  : AssetImage("assets/images/default_profile.jpg") as ImageProvider,
+                              radius: 20,
+                            ),
+                            const SizedBox(width: 10),
+                            Text(
+                              user != null ? "${user['name']} ${user['first_name']}" : "Usuario desconocido",
+                              style: const TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      // Mostrar las imágenes de la publicación
                       if (images.isNotEmpty)
                         SizedBox(
                           height: 200,

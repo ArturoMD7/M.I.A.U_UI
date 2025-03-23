@@ -35,8 +35,8 @@ class _LostPetsScreenState extends State<LostPetsScreen> {
     const String postsUrl = "$baseUrl/api/posts/";
     const String petsUrl = "$baseUrl/api/pets/";
     const String imgsUrl = "$baseUrl/api/imgs-post/";
+    const String usersUrl = "$baseUrl/api/users/";
 
-    // Recuperar el token JWT
     final SharedPreferences prefs = await SharedPreferences.getInstance();
     final String? token = prefs.getString('jwt_token');
 
@@ -64,12 +64,19 @@ class _LostPetsScreenState extends State<LostPetsScreen> {
         headers: {"Authorization": "Bearer $token"},
       );
 
+      final usersResponse = await http.get(
+        Uri.parse(usersUrl),
+        headers: {"Authorization": "Bearer $token"},
+      );
+
       if (postsResponse.statusCode == 200 &&
           petsResponse.statusCode == 200 &&
-          imgsResponse.statusCode == 200) {
+          imgsResponse.statusCode == 200 &&
+          usersResponse.statusCode == 200) {
         final List<dynamic> postsData = jsonDecode(postsResponse.body);
         final List<dynamic> petsData = jsonDecode(petsResponse.body);
         final List<dynamic> imgsData = jsonDecode(imgsResponse.body);
+        final List<dynamic> usersData = jsonDecode(usersResponse.body);
 
         // Filtrar solo mascotas perdidas (statusAdoption = 0)
         final filteredPosts = postsData
@@ -86,7 +93,9 @@ class _LostPetsScreenState extends State<LostPetsScreen> {
           final pet = petsData.firstWhere((pet) => pet['id'] == petId);
           final postImages =
           imgsData.where((img) => img['idPost'] == post['id']).toList();
-          return {...post, 'pet': pet, 'images': postImages};
+          final userId = post['userId'];
+          final user = usersData.firstWhere((user) => user['id'] == userId, orElse: () => null);
+          return {...post, 'pet': pet, 'images': postImages, 'user': user};
         })
             .toList();
 
@@ -120,11 +129,12 @@ class _LostPetsScreenState extends State<LostPetsScreen> {
     const String postUrl = "$baseUrl/api/posts/";
     const String imgUrl = "$baseUrl/api/imgs-post/";
 
-    // Recuperar el token JWT
+    // Recuperar el token JWT y el ID del usuario autenticado
     final SharedPreferences prefs = await SharedPreferences.getInstance();
     final String? token = prefs.getString('jwt_token');
+    final int? userId = prefs.getInt('user_id'); // Recuperar el userId
 
-    if (token == null) {
+    if (token == null || userId == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text("No estás autenticado. Inicia sesión primero.")),
       );
@@ -149,7 +159,7 @@ class _LostPetsScreenState extends State<LostPetsScreen> {
           "breed": breed,
           "size": size,
           "petDetails": details,
-          "userId": 1, // Asignar el ID del usuario autenticado
+          "userId": userId, // Usar el ID del usuario autenticado
           "statusAdoption": 0, // Estado LOST
           "qrId": 1, // Asignar un código QR por defecto
         }),
@@ -174,7 +184,7 @@ class _LostPetsScreenState extends State<LostPetsScreen> {
             "description": description,
             "postDate": formattedDate,
             "petId": petId,
-            "userId": 1, // Asignar el ID del usuario autenticado
+            "userId": userId, // Usar el ID del usuario autenticado
           }),
         );
 
@@ -298,7 +308,7 @@ class _LostPetsScreenState extends State<LostPetsScreen> {
                 TextField(
                   controller: detailsController,
                   decoration: const InputDecoration(
-                    labelText: "Lugar donde se perdió", // Cambiado a "Lugar donde se perdió"
+                    labelText: "Lugar donde se perdió",
                   ),
                 ),
                 TextField(
@@ -387,6 +397,7 @@ class _LostPetsScreenState extends State<LostPetsScreen> {
                 final post = posts[index];
                 final pet = post['pet'];
                 final images = post['images'] as List<dynamic>;
+                final user = post['user'];
 
                 return Card(
                   elevation: 3,
@@ -394,6 +405,29 @@ class _LostPetsScreenState extends State<LostPetsScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
+                      // Mostrar el nombre y la foto del usuario
+                      Padding(
+                        padding: const EdgeInsets.all(10),
+                        child: Row(
+                          children: [
+                            CircleAvatar(
+                              backgroundImage: user != null && user['profilePhoto'] != null
+                                  ? NetworkImage("$baseUrl${user['profilePhoto']}")
+                                  : AssetImage("assets/images/default_profile.jpg") as ImageProvider,
+                              radius: 20,
+                            ),
+                            const SizedBox(width: 10),
+                            Text(
+                              user != null ? "${user['name']} ${user['first_name']}" : "Usuario desconocido",
+                              style: const TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      // Mostrar las imágenes de la publicación
                       if (images.isNotEmpty)
                         SizedBox(
                           height: 200,
@@ -421,6 +455,7 @@ class _LostPetsScreenState extends State<LostPetsScreen> {
                             },
                           ),
                         ),
+                      // Resto de la información de la publicación
                       Padding(
                         padding: const EdgeInsets.all(10),
                         child: Column(

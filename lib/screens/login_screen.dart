@@ -59,15 +59,17 @@ class _LoginScreenState extends State<LoginScreen> {
       });
 
       if (response.statusCode == 200) {
-        // Si el login es exitoso, guarda el access token y el refresh token
+        // Si el login es exitoso, guarda el access token, refresh token y userId
         final Map<String, dynamic> responseData = jsonDecode(response.body);
         final String accessToken = responseData['access'];
         final String refreshToken = responseData['refresh'];
+        final int userId = responseData['user']['id']; // Obtén el userId desde la respuesta
 
-        // Guardar los tokens en SharedPreferences
+        // Guardar los tokens y el userId en SharedPreferences
         final prefs = await SharedPreferences.getInstance();
         await prefs.setString('jwt_token', accessToken);
         await prefs.setString('refresh_token', refreshToken);
+        await prefs.setInt('user_id', userId); // Guardar el userId
 
         ScaffoldMessenger.of(
           context,
