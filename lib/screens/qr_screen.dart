@@ -26,9 +26,8 @@ class _QRScreenState extends State<QRScreen> {
   Future<void> fetchMyPets() async {
     final prefs = await SharedPreferences.getInstance();
     final String? token = prefs.getString('jwt_token');
-    final int? userId = prefs.getInt('user_id');
 
-    if (token == null || userId == null) {
+    if (token == null) {
       setState(() {
         isLoading = false;
       });
@@ -42,6 +41,8 @@ class _QRScreenState extends State<QRScreen> {
         Uri.parse(petsUrl),
         headers: {'Authorization': 'Bearer $token'},
       );
+
+      print("Respuesta del servidor: ${response.body}"); // Agregar esta línea
 
       if (response.statusCode == 200) {
         final List<dynamic> petsData = jsonDecode(response.body);
@@ -134,6 +135,31 @@ class _QRScreenState extends State<QRScreen> {
     }
   }
 
+  void _showQRPreview(String qrCodeUrl) {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              QrImageView(
+                data: qrCodeUrl,
+                version: QrVersions.auto,
+                size: 250.0,
+              ),
+              const SizedBox(height: 20),
+              ElevatedButton(
+                onPressed: () => Navigator.of(context).pop(),
+                child: const Text("Cerrar"),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -157,9 +183,15 @@ class _QRScreenState extends State<QRScreen> {
                     itemCount: myPets.length,
                     itemBuilder: (context, index) {
                       final pet = myPets[index];
-                      final qrId = pet['qrId'];
+                      final petId = pet['id'];
+                      final qrId = pet['qrId']; // qrId es un número entero
+
+                      // Verificar si el qrId es válido (no es 1 ni null)
+                      final bool hasValidQR = qrId != null && qrId != 1;
                       final qrCodeUrl =
-                          qrId is Map ? qrId['qr_code_url'] : null;
+                          hasValidQR
+                              ? "http://192.168.1.95:8000/media/qr_$qrId.png"
+                              : null;
 
                       return Card(
                         elevation: 3,
@@ -182,7 +214,7 @@ class _QRScreenState extends State<QRScreen> {
                                 style: const TextStyle(fontSize: 14),
                               ),
                               const SizedBox(height: 10),
-                              if (qrCodeUrl != null)
+                              if (hasValidQR && qrCodeUrl != null)
                                 Column(
                                   children: [
                                     QrImageView(
@@ -191,25 +223,50 @@ class _QRScreenState extends State<QRScreen> {
                                       size: 150.0,
                                     ),
                                     const SizedBox(height: 10),
-                                    ElevatedButton(
-                                      onPressed: () => deleteQR(pet['id']),
-                                      style: ElevatedButton.styleFrom(
-                                        backgroundColor: Colors.red,
-                                        padding: const EdgeInsets.symmetric(
-                                          horizontal: 20,
-                                          vertical: 10,
+                                    Row(
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.spaceEvenly,
+                                      children: [
+                                        ElevatedButton(
+                                          onPressed:
+                                              () => _showQRPreview(qrCodeUrl),
+                                          style: ElevatedButton.styleFrom(
+                                            backgroundColor: Colors.green,
+                                            padding: const EdgeInsets.symmetric(
+                                              horizontal: 20,
+                                              vertical: 10,
+                                            ),
+                                          ),
+                                          child: const Text(
+                                            "Ver QR",
+                                            style: TextStyle(
+                                              color: Colors.white,
+                                            ),
+                                          ),
                                         ),
-                                      ),
-                                      child: const Text(
-                                        "Eliminar QR",
-                                        style: TextStyle(color: Colors.white),
-                                      ),
+                                        ElevatedButton(
+                                          onPressed: () => deleteQR(petId),
+                                          style: ElevatedButton.styleFrom(
+                                            backgroundColor: Colors.red,
+                                            padding: const EdgeInsets.symmetric(
+                                              horizontal: 20,
+                                              vertical: 10,
+                                            ),
+                                          ),
+                                          child: const Text(
+                                            "Eliminar QR",
+                                            style: TextStyle(
+                                              color: Colors.white,
+                                            ),
+                                          ),
+                                        ),
+                                      ],
                                     ),
                                   ],
                                 ),
-                              if (qrCodeUrl == null)
+                              if (!hasValidQR)
                                 ElevatedButton(
-                                  onPressed: () => generateQR(pet['id']),
+                                  onPressed: () => generateQR(petId),
                                   style: ElevatedButton.styleFrom(
                                     backgroundColor: Colors.blue,
                                     padding: const EdgeInsets.symmetric(
