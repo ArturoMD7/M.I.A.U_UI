@@ -22,7 +22,7 @@ Future<String?> getToken() async {
 }
 
 const Color primaryColor = Color(0xFFD0894B);
-const String baseUrl = "http://192.168.1.64:8000"; // URL base del backend
+const String baseUrl = "http://192.168.1.95:8000"; // URL base del backend
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -54,12 +54,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
         // Si no incluye la baseUrl, concaténala
         final String absoluteImageUrl = '$baseUrl$imageUrl';
         setState(() {
-          _profilePhotoUrl = '$absoluteImageUrl?${DateTime.now().millisecondsSinceEpoch}';
+          _profilePhotoUrl =
+              '$absoluteImageUrl?${DateTime.now().millisecondsSinceEpoch}';
         });
       } else {
         // Si ya incluye la baseUrl, úsala directamente
         setState(() {
-          _profilePhotoUrl = '$imageUrl?${DateTime.now().millisecondsSinceEpoch}';
+          _profilePhotoUrl =
+              '$imageUrl?${DateTime.now().millisecondsSinceEpoch}';
         });
       }
     }
@@ -88,65 +90,80 @@ class _ProfileScreenState extends State<ProfileScreen> {
     final url = Uri.parse('$baseUrl/api/users-profile/');
     final token = await getToken();
 
-    var request = http.MultipartRequest('POST', url)
-      ..headers['Authorization'] = 'Bearer $token'
-    ..fields['userId'] = '1' // Asegúrate de incluir el ID del usuario
-    ..fields['description'] = 'Descripción del perfil' // Ejemplo de campo adicional
-    ..fields['state'] = 'Estado' // Ejemplo de campo adicional
-    ..fields['city'] = 'Ciudad' // Ejemplo de campo adicional
-    ..fields['address'] = 'Dirección' // Ejemplo de campo adicional
-    ..files.add(await http.MultipartFile.fromPath(
-    'profilePhoto', // Nombre del campo en el backend
-    _image!.path,
-    ));
+    var request =
+        http.MultipartRequest('POST', url)
+          ..headers['Authorization'] = 'Bearer $token'
+          ..fields['userId'] =
+              '1' // Asegúrate de incluir el ID del usuario
+          ..fields['description'] =
+              'Descripción del perfil' // Ejemplo de campo adicional
+          ..fields['state'] =
+              'Estado' // Ejemplo de campo adicional
+          ..fields['city'] =
+              'Ciudad' // Ejemplo de campo adicional
+          ..fields['address'] =
+              'Dirección' // Ejemplo de campo adicional
+          ..files.add(
+            await http.MultipartFile.fromPath(
+              'profilePhoto', // Nombre del campo en el backend
+              _image!.path,
+            ),
+          );
 
     try {
-    var response = await request.send();
+      var response = await request.send();
 
-    if (response.statusCode == 201) { // 201 Created es el código esperado para una creación exitosa
-    final responseData = await response.stream.bytesToString();
-    final Map<String, dynamic> data = jsonDecode(responseData);
+      if (response.statusCode == 201) {
+        // 201 Created es el código esperado para una creación exitosa
+        final responseData = await response.stream.bytesToString();
+        final Map<String, dynamic> data = jsonDecode(responseData);
 
-    // Verifica que la respuesta contenga la URL de la imagen
-    if (data.containsKey('profilePhoto') && data['profilePhoto'] != null) {
-    final String imageUrl = data['profilePhoto'];
+        // Verifica que la respuesta contenga la URL de la imagen
+        if (data.containsKey('profilePhoto') && data['profilePhoto'] != null) {
+          final String imageUrl = data['profilePhoto'];
 
-    // Extraer la parte relativa de la URL si es absoluta
-    final String relativeImageUrl = imageUrl.replaceFirst(baseUrl, '');
+          // Extraer la parte relativa de la URL si es absoluta
+          final String relativeImageUrl = imageUrl.replaceFirst(baseUrl, '');
 
-    // Guardar solo la parte relativa de la URL en SharedPreferences
-    final prefs = await SharedPreferences.getInstance();
-    final String? userId = prefs.getString('userId'); // Obtener el ID del usuario actual
-    await prefs.setString('profilePhotoUrl_$userId', relativeImageUrl);
+          // Guardar solo la parte relativa de la URL en SharedPreferences
+          final prefs = await SharedPreferences.getInstance();
+          final String? userId = prefs.getString(
+            'userId',
+          ); // Obtener el ID del usuario actual
+          await prefs.setString('profilePhotoUrl_$userId', relativeImageUrl);
 
-    // Actualizar el estado con la nueva URL
-    setState(() {
-    _profilePhotoUrl = '$baseUrl$relativeImageUrl?${DateTime.now().millisecondsSinceEpoch}';
-    });
+          // Actualizar el estado con la nueva URL
+          setState(() {
+            _profilePhotoUrl =
+                '$baseUrl$relativeImageUrl?${DateTime.now().millisecondsSinceEpoch}';
+          });
 
-    ScaffoldMessenger.of(context).showSnackBar(
-    SnackBar(content: Text('Foto de perfil actualizada correctamente')),
-    );
-    } else {
-    throw Exception('La respuesta del backend no contiene la URL de la imagen');
-    }
-    } else if (response.statusCode == 400) {
-    final responseData = await response.stream.bytesToString();
-    final Map<String, dynamic> data = jsonDecode(responseData);
-    ScaffoldMessenger.of(context).showSnackBar(
-    SnackBar(content: Text('Error: ${data['userId'][0]}')),
-    );
-    } else {
-    throw Exception('Error al subir la foto de perfil: ${response.statusCode}');
-    }
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Foto de perfil actualizada correctamente')),
+          );
+        } else {
+          throw Exception(
+            'La respuesta del backend no contiene la URL de la imagen',
+          );
+        }
+      } else if (response.statusCode == 400) {
+        final responseData = await response.stream.bytesToString();
+        final Map<String, dynamic> data = jsonDecode(responseData);
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Error: ${data['userId'][0]}')));
+      } else {
+        throw Exception(
+          'Error al subir la foto de perfil: ${response.statusCode}',
+        );
+      }
     } catch (e) {
-    print('Error al subir la imagen: $e');
-    ScaffoldMessenger.of(context).showSnackBar(
-    SnackBar(content: Text('Error al subir la foto de perfil: $e')),
-    );
+      print('Error al subir la imagen: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error al subir la foto de perfil: $e')),
+      );
     }
   }
-
 
   // Función para cerrar sesión
   Future<void> logout(BuildContext context) async {
@@ -180,9 +197,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
         );
       }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error de conexión: $e')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Error de conexión: $e')));
     }
   }
 
@@ -206,13 +223,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
         Navigator.pushReplacementNamed(context, '/');
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error al eliminar la cuenta: ${response.body}')),
+          SnackBar(
+            content: Text('Error al eliminar la cuenta: ${response.body}'),
+          ),
         );
       }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error de conexión: $e')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Error de conexión: $e')));
     }
   }
 
@@ -253,12 +272,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
         } else {
           await removeToken();
           Navigator.pushReplacementNamed(context, '/login');
-          throw Exception('Error al obtener la información del usuario: ${newResponse.statusCode}');
+          throw Exception(
+            'Error al obtener la información del usuario: ${newResponse.statusCode}',
+          );
         }
       } else {
         await removeToken();
         Navigator.pushReplacementNamed(context, '/login');
-        throw Exception('Error al obtener la información del usuario: ${response.statusCode}');
+        throw Exception(
+          'Error al obtener la información del usuario: ${response.statusCode}',
+        );
       }
     } catch (e) {
       await removeToken();
@@ -335,12 +358,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   onTap: _pickImage,
                   child: CircleAvatar(
                     radius: 50,
-                    backgroundImage: _profilePhotoUrl != null
-                        ? NetworkImage(
-                      _profilePhotoUrl!,
-                      headers: {"Cache-Control": "no-cache"}, // Evitar caché
-                    )
-                        : AssetImage("assets/images/profile.jpg") as ImageProvider,
+                    backgroundImage:
+                        _profilePhotoUrl != null
+                            ? NetworkImage(
+                              _profilePhotoUrl!,
+                              headers: {
+                                "Cache-Control": "no-cache",
+                              }, // Evitar caché
+                            )
+                            : AssetImage("assets/images/profile.jpg")
+                                as ImageProvider,
                     onBackgroundImageError: (exception, stackTrace) {
                       // Manejar errores al cargar la imagen
                       print("Error al cargar la imagen de perfil: $exception");
@@ -397,7 +424,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     Navigator.push(
                       context,
                       MaterialPageRoute(
-                        builder: (context) => EditProfileScreen(userInfo: userInfo),
+                        builder:
+                            (context) => EditProfileScreen(userInfo: userInfo),
                       ),
                     );
                   },
@@ -526,14 +554,16 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Error al actualizar la información: ${response.body}'),
+            content: Text(
+              'Error al actualizar la información: ${response.body}',
+            ),
           ),
         );
       }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error de conexión: $e')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Error de conexión: $e')));
     }
   }
 

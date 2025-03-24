@@ -3,11 +3,10 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
-const String loginUrl =
-    "http://192.168.1.64:8000/api/users/login/"; // Ruta de login en el backend
+const String loginUrl = "http://192.168.1.95:8000/api/users/login/";
 
 // Colores principales
-const Color primaryColor = Color(0xFFD68F5E); // Naranja similar al de la imagen
+const Color primaryColor = Color(0xFFD68F5E);
 const Color backgroundColor = Colors.white;
 const Color textColor = Colors.black;
 const Color accentColor = Colors.blue;
@@ -20,7 +19,6 @@ final TextStyle titleStyle = TextStyle(
 );
 
 final TextStyle subtitleStyle = TextStyle(fontSize: 18, color: textColor);
-
 final TextStyle buttonTextStyle = TextStyle(fontSize: 18, color: Colors.white);
 
 class LoginScreen extends StatefulWidget {
@@ -59,24 +57,30 @@ class _LoginScreenState extends State<LoginScreen> {
       });
 
       if (response.statusCode == 200) {
-        // Si el login es exitoso, guarda el access token, refresh token y userId
+        // Decodificar la respuesta JSON
         final Map<String, dynamic> responseData = jsonDecode(response.body);
+
+        // Extraer tokens y datos del usuario
         final String accessToken = responseData['access'];
         final String refreshToken = responseData['refresh'];
-        final int userId = responseData['user']['id']; // Obtén el userId desde la respuesta
+        final Map<String, dynamic> userData = responseData['user'];
 
-        // Guardar los tokens y el userId en SharedPreferences
+        // Guardar tokens y datos del usuario en SharedPreferences
         final prefs = await SharedPreferences.getInstance();
         await prefs.setString('jwt_token', accessToken);
         await prefs.setString('refresh_token', refreshToken);
-        await prefs.setInt('user_id', userId); // Guardar el userId
+        await prefs.setInt('user_id', userData['id']);
+        await prefs.setString('user_email', userData['email']);
 
+        // Mostrar mensaje de éxito
         ScaffoldMessenger.of(
           context,
         ).showSnackBar(SnackBar(content: Text('Inicio de sesión exitoso')));
+
+        // Navegar a la siguiente pantalla
         Navigator.pushNamed(context, '/lost-pets');
       } else {
-        // Si hay un error, muestra el mensaje de error
+        // Mostrar mensaje de error
         ScaffoldMessenger.of(
           context,
         ).showSnackBar(SnackBar(content: Text('Error: ${response.body}')));
@@ -112,10 +116,10 @@ class _LoginScreenState extends State<LoginScreen> {
                   ),
                   child: Center(
                     child: Image.asset(
-                      'assets/images/logomiau.png', // Ruta de la imagen
-                      width: 140, // Ajusta el tamaño según necesites
+                      'assets/images/logomiau.png',
+                      width: 140,
                       height: 140,
-                      fit: BoxFit.contain, // Para que la imagen no se recorte
+                      fit: BoxFit.contain,
                     ),
                   ),
                 ),
