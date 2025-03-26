@@ -6,6 +6,9 @@ import 'dart:io';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:intl/intl.dart';
 import 'custom_app_bar.dart';
+import 'chat_screen.dart';
+import 'comment_screen.dart';
+import 'messages_screen.dart';
 
 const String baseUrl = "http://192.168.1.95:8000";
 
@@ -20,14 +23,17 @@ class _LostPetsScreenState extends State<LostPetsScreen> {
   List<dynamic> posts = [];
   bool isLoading = true;
   String errorMessage = '';
-
-  String? selectedSize;
-  String? selectedBreed;
   File? selectedImage;
+  late SharedPreferences prefs;
 
   @override
   void initState() {
     super.initState();
+    _initPrefs();
+  }
+
+  Future<void> _initPrefs() async {
+    prefs = await SharedPreferences.getInstance();
     fetchData();
   }
 
@@ -434,7 +440,6 @@ class _LostPetsScreenState extends State<LostPetsScreen> {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              // Mostrar el nombre y la foto del usuario
                               Padding(
                                 padding: const EdgeInsets.all(10),
                                 child: Row(
@@ -446,7 +451,7 @@ class _LostPetsScreenState extends State<LostPetsScreen> {
                                               ? NetworkImage(
                                                 "$baseUrl${user['profilePhoto']}",
                                               )
-                                              : AssetImage(
+                                              : const AssetImage(
                                                     "assets/images/default_profile.jpg",
                                                   )
                                                   as ImageProvider,
@@ -465,7 +470,6 @@ class _LostPetsScreenState extends State<LostPetsScreen> {
                                   ],
                                 ),
                               ),
-                              // Mostrar las imágenes de la publicación
                               if (images.isNotEmpty)
                                 SizedBox(
                                   height: 200,
@@ -499,7 +503,6 @@ class _LostPetsScreenState extends State<LostPetsScreen> {
                                     },
                                   ),
                                 ),
-                              // Resto de la información de la publicación
                               Padding(
                                 padding: const EdgeInsets.all(10),
                                 child: Column(
@@ -548,15 +551,61 @@ class _LostPetsScreenState extends State<LostPetsScreen> {
                                             color: Colors.blue,
                                           ),
                                           label: const Text("Comentar"),
-                                          onPressed: () {},
+                                          onPressed: () {
+                                            Navigator.push(
+                                              context,
+                                              MaterialPageRoute(
+                                                builder:
+                                                    (context) => CommentScreen(
+                                                      postId: post['id'],
+                                                    ),
+                                              ),
+                                            );
+                                          },
                                         ),
+                                        // En el botón de enviar mensaje, reemplazar el código actual con:
                                         TextButton.icon(
                                           icon: const Icon(
                                             Icons.message,
                                             color: Colors.green,
                                           ),
                                           label: const Text("Enviar mensaje"),
-                                          onPressed: () {},
+                                          onPressed: () async {
+                                            final String? token = prefs
+                                                .getString('jwt_token');
+                                            final int? userId = prefs.getInt(
+                                              'user_id',
+                                            );
+
+                                            if (token == null ||
+                                                userId == null ||
+                                                user == null) {
+                                              ScaffoldMessenger.of(
+                                                context,
+                                              ).showSnackBar(
+                                                const SnackBar(
+                                                  content: Text(
+                                                    "Debes iniciar sesión",
+                                                  ),
+                                                ),
+                                              );
+                                              return;
+                                            }
+
+                                            // Navegar a MessagesScreen con el ID del usuario de la publicación
+                                            Navigator.push(
+                                              context,
+                                              MaterialPageRoute(
+                                                builder:
+                                                    (context) => MessagesScreen(
+                                                      initialRecipientId:
+                                                          user['id'],
+                                                      initialRecipientName:
+                                                          '${user['name']} ${user['first_name']}',
+                                                    ),
+                                              ),
+                                            );
+                                          },
                                         ),
                                       ],
                                     ),

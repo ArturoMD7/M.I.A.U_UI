@@ -6,6 +6,7 @@ import 'dart:io';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:intl/intl.dart';
 import 'custom_app_bar.dart';
+import 'messages_screen.dart';
 
 const String baseUrl = "http://192.168.1.95:8000";
 
@@ -603,13 +604,51 @@ class _AdoptScreenState extends State<AdoptScreen> {
                                           label: const Text("Comentar"),
                                           onPressed: () {},
                                         ),
+                                        // En el botón de enviar mensaje, reemplazar el código actual con:
                                         TextButton.icon(
                                           icon: const Icon(
                                             Icons.message,
                                             color: Colors.green,
                                           ),
                                           label: const Text("Enviar mensaje"),
-                                          onPressed: () {},
+                                          onPressed: () async {
+                                            final SharedPreferences prefs =
+                                                await SharedPreferences.getInstance();
+                                            final int? userId = prefs.getInt(
+                                              'user_id',
+                                            );
+                                            final String? token = prefs
+                                                .getString('jwt_token');
+
+                                            if (userId == null ||
+                                                token == null) {
+                                              ScaffoldMessenger.of(
+                                                context,
+                                              ).showSnackBar(
+                                                const SnackBar(
+                                                  content: Text(
+                                                    "Debes iniciar sesión",
+                                                  ),
+                                                ),
+                                              );
+                                              return;
+                                            }
+
+                                            // Navegar a MessagesScreen con el ID del usuario de la publicación
+                                            Navigator.push(
+                                              context,
+                                              MaterialPageRoute(
+                                                builder:
+                                                    (context) => MessagesScreen(
+                                                      initialRecipientId:
+                                                          post['user']['id'],
+                                                      initialRecipientName:
+                                                          post['user']['name'] ??
+                                                          'Usuario',
+                                                    ),
+                                              ),
+                                            );
+                                          },
                                         ),
                                       ],
                                     ),
