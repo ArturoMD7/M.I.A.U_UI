@@ -36,7 +36,11 @@ class _CommentScreenState extends State<CommentScreen> {
     try {
       final response = await http.get(
         Uri.parse(
+<<<<<<< HEAD
           'http://137.131.25.37:8000/api/posts/${widget.postId}/comments/',
+=======
+          'http://192.168.1.95:8000/api/posts/${widget.postId}/comments/',
+>>>>>>> 5328613d43e1403cf41d9b887c5b748aa19d85fc
         ),
         headers: {'Authorization': 'Bearer $token'},
       );
@@ -66,7 +70,11 @@ class _CommentScreenState extends State<CommentScreen> {
     try {
       final response = await http.post(
         Uri.parse(
+<<<<<<< HEAD
           'http://137.131.25.37:8000/api/posts/${widget.postId}/comments/',
+=======
+          'http://192.168.1.95:8000/api/posts/${widget.postId}/comments/',
+>>>>>>> 5328613d43e1403cf41d9b887c5b748aa19d85fc
         ),
         headers: {
           'Authorization': 'Bearer $token',
@@ -94,6 +102,7 @@ class _CommentScreenState extends State<CommentScreen> {
         children: [
           Expanded(
             child:
+<<<<<<< HEAD
             isLoading
                 ? const Center(child: CircularProgressIndicator())
                 : ListView.builder(
@@ -113,6 +122,27 @@ class _CommentScreenState extends State<CommentScreen> {
                 );
               },
             ),
+=======
+                isLoading
+                    ? const Center(child: CircularProgressIndicator())
+                    : ListView.builder(
+                      itemCount: comments.length,
+                      itemBuilder: (context, index) {
+                        final comment = comments[index];
+                        return ListTile(
+                          leading: CircleAvatar(
+                            backgroundImage: NetworkImage(
+                              comment['userId']['profilePhoto'] ?? '',
+                            ),
+                          ),
+                          title: Text(
+                            '${comment['userId']['name']} ${comment['userId']['first_name']}',
+                          ),
+                          subtitle: Text(comment['comment']),
+                        );
+                      },
+                    ),
+>>>>>>> 5328613d43e1403cf41d9b887c5b748aa19d85fc
           ),
           Padding(
             padding: const EdgeInsets.all(8.0),
@@ -135,4 +165,8 @@ class _CommentScreenState extends State<CommentScreen> {
       ),
     );
   }
+<<<<<<< HEAD
 }
+=======
+}
+>>>>>>> 5328613d43e1403cf41d9b887c5b748aa19d85fc

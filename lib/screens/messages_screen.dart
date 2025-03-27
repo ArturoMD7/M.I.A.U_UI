@@ -4,7 +4,11 @@ import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'chat_screen.dart';
 
+<<<<<<< HEAD
 const String baseUrl = "http://137.131.25.37:8000";
+=======
+const String baseUrl = "http://192.168.1.95:8000";
+>>>>>>> 5328613d43e1403cf41d9b887c5b748aa19d85fc
 
 class MessagesScreen extends StatefulWidget {
   final int? initialRecipientId;
@@ -43,8 +47,13 @@ class _MessagesScreenState extends State<MessagesScreen> {
 
   Future<void> _handleInitialRecipient() async {
     final existingChat = chats.firstWhere(
+<<<<<<< HEAD
           (chat) => chat['participants'].any(
             (user) => user['id'] == widget.initialRecipientId,
+=======
+      (chat) => chat['participants'].any(
+        (user) => user['id'] == widget.initialRecipientId,
+>>>>>>> 5328613d43e1403cf41d9b887c5b748aa19d85fc
       ),
       orElse: () => null,
     );
@@ -86,7 +95,11 @@ class _MessagesScreenState extends State<MessagesScreen> {
   void _navigateToChat(dynamic chatData) {
     final currentUserId = prefs.getInt('user_id');
     final otherUser = chatData['participants'].firstWhere(
+<<<<<<< HEAD
           (user) => user['id'] != currentUserId,
+=======
+      (user) => user['id'] != currentUserId,
+>>>>>>> 5328613d43e1403cf41d9b887c5b748aa19d85fc
       orElse: () => null,
     );
 
@@ -96,10 +109,17 @@ class _MessagesScreenState extends State<MessagesScreen> {
         MaterialPageRoute(
           builder:
               (context) => ChatScreen(
+<<<<<<< HEAD
             chatId: chatData['id'],
             recipientName:
             '${otherUser['name']} ${otherUser['first_name']}',
           ),
+=======
+                chatId: chatData['id'],
+                recipientName:
+                    '${otherUser['name']} ${otherUser['first_name']}',
+              ),
+>>>>>>> 5328613d43e1403cf41d9b887c5b748aa19d85fc
         ),
       );
     }
@@ -143,6 +163,7 @@ class _MessagesScreenState extends State<MessagesScreen> {
         ],
       ),
       body:
+<<<<<<< HEAD
       isLoading
           ? const Center(child: CircularProgressIndicator())
           : chats.isEmpty
@@ -223,3 +244,85 @@ class _MessagesScreenState extends State<MessagesScreen> {
     );
   }
 }
+=======
+          isLoading
+              ? const Center(child: CircularProgressIndicator())
+              : chats.isEmpty
+              ? const Center(child: Text('No tienes conversaciones'))
+              : ListView.builder(
+                itemCount: chats.length,
+                itemBuilder: (context, index) {
+                  final chat = chats[index];
+                  final currentUserId = prefs.getInt('user_id');
+                  final otherUser = chat['participants'].firstWhere(
+                    (user) => user['id'] != currentUserId,
+                    orElse: () => null,
+                  );
+
+                  if (otherUser == null) return const SizedBox();
+
+                  return ListTile(
+                    leading:
+                        otherUser['profilePhoto'] != null
+                            ? ClipOval(
+                              child: Image.network(
+                                "$baseUrl${otherUser['profilePhoto']}",
+                                width: 40,
+                                height: 40,
+                                fit: BoxFit.cover,
+                                errorBuilder: (context, error, stackTrace) {
+                                  return Container(
+                                    width: 40,
+                                    height: 40,
+                                    color: Colors.grey[300],
+                                    child: const Icon(Icons.person),
+                                  );
+                                },
+                              ),
+                            )
+                            : CircleAvatar(
+                              backgroundColor: Colors.grey[300],
+                              child: const Icon(Icons.person),
+                            ),
+                    title: Text(
+                      '${otherUser['name']} ${otherUser['first_name']}',
+                    ),
+                    subtitle: Text(
+                      chat['last_message']?['content'] ?? 'No hay mensajes',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    trailing:
+                        chat['unread_count'] > 0
+                            ? CircleAvatar(
+                              radius: 12,
+                              backgroundColor: Colors.red,
+                              child: Text(
+                                chat['unread_count'].toString(),
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 12,
+                                ),
+                              ),
+                            )
+                            : null,
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder:
+                              (context) => ChatScreen(
+                                chatId: chat['id'],
+                                recipientName:
+                                    '${otherUser['name']} ${otherUser['first_name']}',
+                              ),
+                        ),
+                      ).then((_) => fetchChats());
+                    },
+                  );
+                },
+              ),
+    );
+  }
+}
+>>>>>>> 5328613d43e1403cf41d9b887c5b748aa19d85fc

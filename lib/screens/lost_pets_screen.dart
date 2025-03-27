@@ -434,6 +434,7 @@ class _LostPetsScreenState extends State<LostPetsScreen> {
                 final images = post['images'] as List<dynamic>;
                 final user = post['user'];
 
+<<<<<<< HEAD
                 return Card(
                   elevation: 3,
                   margin: const EdgeInsets.symmetric(vertical: 10),
@@ -501,6 +502,187 @@ class _LostPetsScreenState extends State<LostPetsScreen> {
                                 },
                               );
                             },
+=======
+                        return Card(
+                          elevation: 3,
+                          margin: const EdgeInsets.symmetric(vertical: 10),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Padding(
+                                padding: const EdgeInsets.all(10),
+                                child: Row(
+                                  children: [
+                                    CircleAvatar(
+                                      backgroundImage:
+                                          user != null &&
+                                                  user['profilePhoto'] != null
+                                              ? NetworkImage(
+                                                "$baseUrl${user['profilePhoto']}",
+                                              )
+                                              : const AssetImage(
+                                                    "assets/images/default_profile.jpg",
+                                                  )
+                                                  as ImageProvider,
+                                      radius: 20,
+                                    ),
+                                    const SizedBox(width: 10),
+                                    Text(
+                                      user != null
+                                          ? "${user['name']} ${user['first_name']}"
+                                          : "Usuario desconocido",
+                                      style: const TextStyle(
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              if (images.isNotEmpty)
+                                SizedBox(
+                                  height: 200,
+                                  child: ListView.builder(
+                                    scrollDirection: Axis.horizontal,
+                                    itemCount: images.length,
+                                    itemBuilder: (context, imgIndex) {
+                                      final imageUrl =
+                                          "$baseUrl${images[imgIndex]['imgURL']}";
+                                      return Image.network(
+                                        imageUrl,
+                                        fit: BoxFit.cover,
+                                        width:
+                                            MediaQuery.of(context).size.width,
+                                        errorBuilder: (
+                                          context,
+                                          error,
+                                          stackTrace,
+                                        ) {
+                                          return Container(
+                                            color: Colors.grey[300],
+                                            child: const Center(
+                                              child: Icon(
+                                                Icons.error,
+                                                color: Colors.red,
+                                              ),
+                                            ),
+                                          );
+                                        },
+                                      );
+                                    },
+                                  ),
+                                ),
+                              Padding(
+                                padding: const EdgeInsets.all(10),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      pet['name'] ?? "Nombre no disponible",
+                                      style: const TextStyle(
+                                        fontSize: 18,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 5),
+                                    Text(
+                                      "Edad: ${pet['age'] ?? "Desconocida"}",
+                                      style: const TextStyle(fontSize: 14),
+                                    ),
+                                    const SizedBox(height: 5),
+                                    Text(
+                                      "Raza: ${pet['breed'] ?? "Desconocida"}",
+                                      style: const TextStyle(fontSize: 14),
+                                    ),
+                                    const SizedBox(height: 5),
+                                    Text(
+                                      "Tamaño: ${pet['size'] ?? "Desconocido"}",
+                                      style: const TextStyle(fontSize: 14),
+                                    ),
+                                    const SizedBox(height: 5),
+                                    Text(
+                                      "Lugar donde se perdió: ${pet['petDetails'] ?? "Sin detalles"}",
+                                      style: const TextStyle(fontSize: 14),
+                                    ),
+                                    const SizedBox(height: 5),
+                                    Text(
+                                      "Descripción: ${post['description'] ?? "Sin descripción"}",
+                                      style: const TextStyle(fontSize: 14),
+                                    ),
+                                    const SizedBox(height: 10),
+                                    Row(
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.spaceBetween,
+                                      children: [
+                                        TextButton.icon(
+                                          icon: const Icon(
+                                            Icons.comment,
+                                            color: Colors.blue,
+                                          ),
+                                          label: const Text("Comentar"),
+                                          onPressed: () {
+                                            Navigator.push(
+                                              context,
+                                              MaterialPageRoute(
+                                                builder:
+                                                    (context) => CommentScreen(
+                                                      postId: post['id'],
+                                                    ),
+                                              ),
+                                            );
+                                          },
+                                        ),
+                                        // En el botón de enviar mensaje, reemplazar el código actual con:
+                                        TextButton.icon(
+                                          icon: const Icon(
+                                            Icons.message,
+                                            color: Colors.green,
+                                          ),
+                                          label: const Text("Enviar mensaje"),
+                                          onPressed: () async {
+                                            final String? token = prefs
+                                                .getString('jwt_token');
+                                            final int? userId = prefs.getInt(
+                                              'user_id',
+                                            );
+
+                                            if (token == null ||
+                                                userId == null ||
+                                                user == null) {
+                                              ScaffoldMessenger.of(
+                                                context,
+                                              ).showSnackBar(
+                                                const SnackBar(
+                                                  content: Text(
+                                                    "Debes iniciar sesión",
+                                                  ),
+                                                ),
+                                              );
+                                              return;
+                                            }
+
+                                            // Navegar a MessagesScreen con el ID del usuario de la publicación
+                                            Navigator.push(
+                                              context,
+                                              MaterialPageRoute(
+                                                builder:
+                                                    (context) => MessagesScreen(
+                                                      initialRecipientId:
+                                                          user['id'],
+                                                      initialRecipientName:
+                                                          '${user['name']} ${user['first_name']}',
+                                                    ),
+                                              ),
+                                            );
+                                          },
+                                        ),
+                                      ],
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+>>>>>>> 5328613d43e1403cf41d9b887c5b748aa19d85fc
                           ),
                         ),
                       Padding(
