@@ -22,7 +22,7 @@ Future<String?> getToken() async {
 }
 
 const Color primaryColor = Color(0xFFD0894B);
-const String baseUrl = "http://192.168.1.95:8000"; // URL base del backend
+const String baseUrl = "http://137.131.25.37:8000"; // URL base del backend
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});

@@ -6,8 +6,9 @@ import 'dart:io';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:intl/intl.dart';
 import 'custom_app_bar.dart';
+import 'messages_screen.dart';
 
-const String baseUrl = "http://192.168.1.95:8000";
+const String baseUrl = "http://137.131.25.37:8000";
 
 class AdoptScreen extends StatefulWidget {
   const AdoptScreen({super.key});
@@ -82,35 +83,35 @@ class _AdoptScreenState extends State<AdoptScreen> {
 
         // Filtrar solo mascotas en adopción (statusAdoption = 2)
         final filteredPosts =
-            postsData
-                .where((post) {
-                  final petId = post['petId'];
-                  final pet = petsData.firstWhere(
-                    (pet) => pet['id'] == petId && pet['statusAdoption'] == 2,
-                    orElse: () => null,
-                  );
-                  return pet != null;
-                })
-                .map((post) {
-                  final petId = post['petId'];
-                  final pet = petsData.firstWhere((pet) => pet['id'] == petId);
-                  final postImages =
-                      imgsData
-                          .where((img) => img['idPost'] == post['id'])
-                          .toList();
-                  final userId = post['userId'];
-                  final user = usersData.firstWhere(
-                    (user) => user['id'] == userId,
-                    orElse: () => null,
-                  );
-                  return {
-                    ...post,
-                    'pet': pet,
-                    'images': postImages,
-                    'user': user,
-                  };
-                })
-                .toList();
+        postsData
+            .where((post) {
+          final petId = post['petId'];
+          final pet = petsData.firstWhere(
+                (pet) => pet['id'] == petId && pet['statusAdoption'] == 2,
+            orElse: () => null,
+          );
+          return pet != null;
+        })
+            .map((post) {
+          final petId = post['petId'];
+          final pet = petsData.firstWhere((pet) => pet['id'] == petId);
+          final postImages =
+          imgsData
+              .where((img) => img['idPost'] == post['id'])
+              .toList();
+          final userId = post['userId'];
+          final user = usersData.firstWhere(
+                (user) => user['id'] == userId,
+            orElse: () => null,
+          );
+          return {
+            ...post,
+            'pet': pet,
+            'images': postImages,
+            'user': user,
+          };
+        })
+            .toList();
 
         setState(() {
           posts = filteredPosts;
@@ -131,13 +132,13 @@ class _AdoptScreenState extends State<AdoptScreen> {
   }
 
   Future<void> publishPet(
-    String name,
-    String age,
-    String breed,
-    String size,
-    String details,
-    String description,
-  ) async {
+      String name,
+      String age,
+      String breed,
+      String size,
+      String details,
+      String description,
+      ) async {
     const String petUrl = "$baseUrl/api/pets/";
     const String postUrl = "$baseUrl/api/posts/";
     const String imgUrl = "$baseUrl/api/imgs-post/";
@@ -209,15 +210,15 @@ class _AdoptScreenState extends State<AdoptScreen> {
 
           // Subir la imagen asociada al post
           final request =
-              http.MultipartRequest("POST", Uri.parse(imgUrl))
-                ..headers['Authorization'] = 'Bearer $token'
-                ..fields['idPost'] = postId.toString()
-                ..files.add(
-                  await http.MultipartFile.fromPath(
-                    'imgURL',
-                    selectedImage!.path,
-                  ),
-                );
+          http.MultipartRequest("POST", Uri.parse(imgUrl))
+            ..headers['Authorization'] = 'Bearer $token'
+            ..fields['idPost'] = postId.toString()
+            ..files.add(
+              await http.MultipartFile.fromPath(
+                'imgURL',
+                selectedImage!.path,
+              ),
+            );
 
           final response = await request.send();
 
@@ -299,12 +300,12 @@ class _AdoptScreenState extends State<AdoptScreen> {
                   hint: const Text("Edad"),
                   value: selectedAge,
                   items:
-                      ["Cachorro", "Joven", "Adulto"].map((String value) {
-                        return DropdownMenuItem<String>(
-                          value: value,
-                          child: Text(value),
-                        );
-                      }).toList(),
+                  ["Cachorro", "Joven", "Adulto"].map((String value) {
+                    return DropdownMenuItem<String>(
+                      value: value,
+                      child: Text(value),
+                    );
+                  }).toList(),
                   onChanged: (newValue) {
                     setState(() {
                       selectedAge = newValue;
@@ -319,12 +320,12 @@ class _AdoptScreenState extends State<AdoptScreen> {
                   hint: const Text("Tamaño"),
                   value: selectedSize,
                   items:
-                      ["Pequeño", "Mediano", "Grande"].map((String value) {
-                        return DropdownMenuItem<String>(
-                          value: value,
-                          child: Text(value),
-                        );
-                      }).toList(),
+                  ["Pequeño", "Mediano", "Grande"].map((String value) {
+                    return DropdownMenuItem<String>(
+                      value: value,
+                      child: Text(value),
+                    );
+                  }).toList(),
                   onChanged: (newValue) {
                     setState(() {
                       selectedSize = newValue;
@@ -385,9 +386,9 @@ class _AdoptScreenState extends State<AdoptScreen> {
                 Navigator.pop(context);
               },
               child:
-                  isLoading
-                      ? CircularProgressIndicator(color: Colors.white)
-                      : const Text("Publicar"),
+              isLoading
+                  ? CircularProgressIndicator(color: Colors.white)
+                  : const Text("Publicar"),
             ),
           ],
         );
@@ -411,12 +412,12 @@ class _AdoptScreenState extends State<AdoptScreen> {
                   hint: const Text("Tamaño"),
                   value: selectedSize,
                   items:
-                      ["Pequeño", "Mediano", "Grande"].map((String value) {
-                        return DropdownMenuItem<String>(
-                          value: value,
-                          child: Text(value),
-                        );
-                      }).toList(),
+                  ["Pequeño", "Mediano", "Grande"].map((String value) {
+                    return DropdownMenuItem<String>(
+                      value: value,
+                      child: Text(value),
+                    );
+                  }).toList(),
                   onChanged: (newValue) {
                     setState(() {
                       selectedSize = newValue;
@@ -427,12 +428,12 @@ class _AdoptScreenState extends State<AdoptScreen> {
                   hint: const Text("Edad"),
                   value: selectedAge,
                   items:
-                      ["Cachorro", "Joven", "Adulto"].map((String value) {
-                        return DropdownMenuItem<String>(
-                          value: value,
-                          child: Text(value),
-                        );
-                      }).toList(),
+                  ["Cachorro", "Joven", "Adulto"].map((String value) {
+                    return DropdownMenuItem<String>(
+                      value: value,
+                      child: Text(value),
+                    );
+                  }).toList(),
                   onChanged: (newValue) {
                     setState(() {
                       selectedAge = newValue;
@@ -443,14 +444,14 @@ class _AdoptScreenState extends State<AdoptScreen> {
                   hint: const Text("Raza"),
                   value: selectedBreed,
                   items:
-                      ["Labrador", "Siamés", "Golden Retriever"].map((
-                        String value,
+                  ["Labrador", "Siamés", "Golden Retriever"].map((
+                      String value,
                       ) {
-                        return DropdownMenuItem<String>(
-                          value: value,
-                          child: Text(value),
-                        );
-                      }).toList(),
+                    return DropdownMenuItem<String>(
+                      value: value,
+                      child: Text(value),
+                    );
+                  }).toList(),
                   onChanged: (newValue) {
                     setState(() {
                       selectedBreed = newValue;
@@ -466,161 +467,199 @@ class _AdoptScreenState extends State<AdoptScreen> {
           ),
           Expanded(
             child:
-                isLoading
-                    ? const Center(child: CircularProgressIndicator())
-                    : posts.isEmpty
-                    ? Center(
-                      child: Text(
-                        errorMessage.isEmpty
-                            ? "No hay mascotas en adopción disponibles"
-                            : errorMessage,
-                        style: const TextStyle(fontSize: 18),
-                      ),
-                    )
-                    : ListView.builder(
-                      padding: const EdgeInsets.all(10),
-                      itemCount: posts.length,
-                      itemBuilder: (context, index) {
-                        final post = posts[index];
-                        final pet = post['pet'];
-                        final images = post['images'] as List<dynamic>;
-                        final user = post['user'];
+            isLoading
+                ? const Center(child: CircularProgressIndicator())
+                : posts.isEmpty
+                ? Center(
+              child: Text(
+                errorMessage.isEmpty
+                    ? "No hay mascotas en adopción disponibles"
+                    : errorMessage,
+                style: const TextStyle(fontSize: 18),
+              ),
+            )
+                : ListView.builder(
+              padding: const EdgeInsets.all(10),
+              itemCount: posts.length,
+              itemBuilder: (context, index) {
+                final post = posts[index];
+                final pet = post['pet'];
+                final images = post['images'] as List<dynamic>;
+                final user = post['user'];
 
-                        return Card(
-                          elevation: 3,
-                          margin: const EdgeInsets.symmetric(vertical: 10),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              // Mostrar el nombre y la foto del usuario
-                              Padding(
-                                padding: const EdgeInsets.all(10),
-                                child: Row(
-                                  children: [
-                                    CircleAvatar(
-                                      backgroundImage:
-                                          user != null &&
-                                                  user['profilePhoto'] != null
-                                              ? NetworkImage(
-                                                "$baseUrl${user['profilePhoto']}",
-                                              )
-                                              : AssetImage(
-                                                    "assets/images/default_profile.jpg",
-                                                  )
-                                                  as ImageProvider,
-                                      radius: 20,
-                                    ),
-                                    const SizedBox(width: 10),
-                                    Text(
-                                      user != null
-                                          ? "${user['name']} ${user['first_name']}"
-                                          : "Usuario desconocido",
-                                      style: const TextStyle(
-                                        fontSize: 16,
-                                        fontWeight: FontWeight.bold,
+                return Card(
+                  elevation: 3,
+                  margin: const EdgeInsets.symmetric(vertical: 10),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Mostrar el nombre y la foto del usuario
+                      Padding(
+                        padding: const EdgeInsets.all(10),
+                        child: Row(
+                          children: [
+                            CircleAvatar(
+                              backgroundImage:
+                              user != null &&
+                                  user['profilePhoto'] != null
+                                  ? NetworkImage(
+                                "$baseUrl${user['profilePhoto']}",
+                              )
+                                  : AssetImage(
+                                "assets/images/default_profile.jpg",
+                              )
+                              as ImageProvider,
+                              radius: 20,
+                            ),
+                            const SizedBox(width: 10),
+                            Text(
+                              user != null
+                                  ? "${user['name']} ${user['first_name']}"
+                                  : "Usuario desconocido",
+                              style: const TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      // Mostrar las imágenes de la publicación
+                      if (images.isNotEmpty)
+                        SizedBox(
+                          height: 200,
+                          child: ListView.builder(
+                            scrollDirection: Axis.horizontal,
+                            itemCount: images.length,
+                            itemBuilder: (context, imgIndex) {
+                              final imageUrl =
+                                  "$baseUrl${images[imgIndex]['imgURL']}";
+                              return Image.network(
+                                imageUrl,
+                                fit: BoxFit.cover,
+                                width:
+                                MediaQuery.of(context).size.width,
+                                errorBuilder: (
+                                    context,
+                                    error,
+                                    stackTrace,
+                                    ) {
+                                  return Container(
+                                    color: Colors.grey[300],
+                                    child: const Center(
+                                      child: Icon(
+                                        Icons.error,
+                                        color: Colors.red,
                                       ),
                                     ),
-                                  ],
-                                ),
-                              ),
-                              // Mostrar las imágenes de la publicación
-                              if (images.isNotEmpty)
-                                SizedBox(
-                                  height: 200,
-                                  child: ListView.builder(
-                                    scrollDirection: Axis.horizontal,
-                                    itemCount: images.length,
-                                    itemBuilder: (context, imgIndex) {
-                                      final imageUrl =
-                                          "$baseUrl${images[imgIndex]['imgURL']}";
-                                      return Image.network(
-                                        imageUrl,
-                                        fit: BoxFit.cover,
-                                        width:
-                                            MediaQuery.of(context).size.width,
-                                        errorBuilder: (
-                                          context,
-                                          error,
-                                          stackTrace,
-                                        ) {
-                                          return Container(
-                                            color: Colors.grey[300],
-                                            child: const Center(
-                                              child: Icon(
-                                                Icons.error,
-                                                color: Colors.red,
-                                              ),
-                                            ),
-                                          );
-                                        },
-                                      );
-                                    },
-                                  ),
-                                ),
-                              Padding(
-                                padding: const EdgeInsets.all(10),
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      pet['name'] ?? "Nombre no disponible",
-                                      style: const TextStyle(
-                                        fontSize: 18,
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                    ),
-                                    const SizedBox(height: 5),
-                                    Text(
-                                      "Edad: ${pet['age'] ?? "Desconocida"}",
-                                      style: const TextStyle(fontSize: 14),
-                                    ),
-                                    const SizedBox(height: 5),
-                                    Text(
-                                      "Raza: ${pet['breed'] ?? "Desconocida"}",
-                                      style: const TextStyle(fontSize: 14),
-                                    ),
-                                    const SizedBox(height: 5),
-                                    Text(
-                                      "Tamaño: ${pet['size'] ?? "Desconocido"}",
-                                      style: const TextStyle(fontSize: 14),
-                                    ),
-                                    const SizedBox(height: 5),
-                                    Text(
-                                      post['description'] ??
-                                          "Sin detalles adicionales",
-                                      style: const TextStyle(fontSize: 14),
-                                    ),
-                                    const SizedBox(height: 10),
-                                    Row(
-                                      mainAxisAlignment:
-                                          MainAxisAlignment.spaceBetween,
-                                      children: [
-                                        TextButton.icon(
-                                          icon: const Icon(
-                                            Icons.comment,
-                                            color: Colors.blue,
-                                          ),
-                                          label: const Text("Comentar"),
-                                          onPressed: () {},
-                                        ),
-                                        TextButton.icon(
-                                          icon: const Icon(
-                                            Icons.message,
-                                            color: Colors.green,
-                                          ),
-                                          label: const Text("Enviar mensaje"),
-                                          onPressed: () {},
-                                        ),
-                                      ],
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ],
+                                  );
+                                },
+                              );
+                            },
                           ),
-                        );
-                      },
-                    ),
+                        ),
+                      Padding(
+                        padding: const EdgeInsets.all(10),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              pet['name'] ?? "Nombre no disponible",
+                              style: const TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            const SizedBox(height: 5),
+                            Text(
+                              "Edad: ${pet['age'] ?? "Desconocida"}",
+                              style: const TextStyle(fontSize: 14),
+                            ),
+                            const SizedBox(height: 5),
+                            Text(
+                              "Raza: ${pet['breed'] ?? "Desconocida"}",
+                              style: const TextStyle(fontSize: 14),
+                            ),
+                            const SizedBox(height: 5),
+                            Text(
+                              "Tamaño: ${pet['size'] ?? "Desconocido"}",
+                              style: const TextStyle(fontSize: 14),
+                            ),
+                            const SizedBox(height: 5),
+                            Text(
+                              post['description'] ??
+                                  "Sin detalles adicionales",
+                              style: const TextStyle(fontSize: 14),
+                            ),
+                            const SizedBox(height: 10),
+                            Row(
+                              mainAxisAlignment:
+                              MainAxisAlignment.spaceBetween,
+                              children: [
+                                TextButton.icon(
+                                  icon: const Icon(
+                                    Icons.comment,
+                                    color: Colors.blue,
+                                  ),
+                                  label: const Text("Comentar"),
+                                  onPressed: () {},
+                                ),
+                                // En el botón de enviar mensaje, reemplazar el código actual con:
+                                TextButton.icon(
+                                  icon: const Icon(
+                                    Icons.message,
+                                    color: Colors.green,
+                                  ),
+                                  label: const Text("Enviar mensaje"),
+                                  onPressed: () async {
+                                    final SharedPreferences prefs =
+                                    await SharedPreferences.getInstance();
+                                    final int? userId = prefs.getInt(
+                                      'user_id',
+                                    );
+                                    final String? token = prefs
+                                        .getString('jwt_token');
+
+                                    if (userId == null ||
+                                        token == null) {
+                                      ScaffoldMessenger.of(
+                                        context,
+                                      ).showSnackBar(
+                                        const SnackBar(
+                                          content: Text(
+                                            "Debes iniciar sesión",
+                                          ),
+                                        ),
+                                      );
+                                      return;
+                                    }
+
+                                    // Navegar a MessagesScreen con el ID del usuario de la publicación
+                                    Navigator.push(
+                                      context,
+                                      MaterialPageRoute(
+                                        builder:
+                                            (context) => MessagesScreen(
+                                          initialRecipientId:
+                                          post['user']['id'],
+                                          initialRecipientName:
+                                          post['user']['name'] ??
+                                              'Usuario',
+                                        ),
+                                      ),
+                                    );
+                                  },
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              },
+            ),
           ),
         ],
       ),
