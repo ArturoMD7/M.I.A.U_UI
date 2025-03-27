@@ -3,7 +3,7 @@ import 'package:http/http.dart' as http;
 
 class PetService {
   final String baseUrl =
-      "http://137.131.25.37:8000/api/pets/"; // Reemplaza con tu URL base
+      "http://192.168.1.95:8000/api/pets/"; // Reemplaza con tu URL base
 
   Future<List<dynamic>> getPets(String token) async {
     final response = await http.get(
