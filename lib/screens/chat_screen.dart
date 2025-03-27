@@ -3,7 +3,11 @@ import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
 
+<<<<<<< HEAD
+const String baseUrl = "http://137.131.25.37:8000/api/chats";
+=======
 const String baseUrl = "http://192.168.1.95:8000/api/chats";
+>>>>>>> 5328613d43e1403cf41d9b887c5b748aa19d85fc
 
 class ChatScreen extends StatefulWidget {
   final int chatId;
@@ -128,6 +132,25 @@ class _ChatScreenState extends State<ChatScreen> {
         children: [
           Expanded(
             child:
+<<<<<<< HEAD
+            isLoading
+                ? const Center(child: CircularProgressIndicator())
+                : ListView.builder(
+              controller: _scrollController,
+              reverse: true,
+              itemCount: messages.length,
+              itemBuilder: (context, index) {
+                final message = messages[index];
+                final isMe =
+                    message['sender']['id'] == prefs.getInt('user_id');
+                return MessageBubble(
+                  message: message['content'],
+                  isMe: isMe,
+                  timestamp: message['timestamp'],
+                );
+              },
+            ),
+=======
                 isLoading
                     ? const Center(child: CircularProgressIndicator())
                     : ListView.builder(
@@ -145,6 +168,7 @@ class _ChatScreenState extends State<ChatScreen> {
                         );
                       },
                     ),
+>>>>>>> 5328613d43e1403cf41d9b887c5b748aa19d85fc
           ),
           Padding(
             padding: const EdgeInsets.all(8.0),
@@ -196,4 +220,8 @@ class MessageBubble extends StatelessWidget {
       child: Text(message),
     );
   }
+<<<<<<< HEAD
 }
+=======
+}
+>>>>>>> 5328613d43e1403cf41d9b887c5b748aa19d85fc

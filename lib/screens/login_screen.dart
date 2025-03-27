@@ -3,7 +3,7 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
-const String loginUrl = "http://192.168.1.95:8000/api/users/login/";
+const String loginUrl = "http://137.131.25.37:8000/api/users/login/";
 
 // Colores principales
 const Color primaryColor = Color(0xFFD68F5E);

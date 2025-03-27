@@ -13,7 +13,6 @@ class QRScreen extends StatefulWidget {
 }
 
 class _QRScreenState extends State<QRScreen> {
-  String qrData = "";
   List<dynamic> myPets = [];
   bool isLoading = true;
 
@@ -34,15 +33,13 @@ class _QRScreenState extends State<QRScreen> {
       return;
     }
 
-    const String petsUrl = "http://192.168.1.95:8000/api/pets/";
+    const String petsUrl = "http://137.131.25.37:8000/api/pets/";
 
     try {
       final response = await http.get(
         Uri.parse(petsUrl),
         headers: {'Authorization': 'Bearer $token'},
       );
-
-      print("Respuesta del servidor: ${response.body}"); // Agregar esta línea
 
       if (response.statusCode == 200) {
         final List<dynamic> petsData = jsonDecode(response.body);
@@ -66,9 +63,7 @@ class _QRScreenState extends State<QRScreen> {
     final prefs = await SharedPreferences.getInstance();
     final String? token = prefs.getString('jwt_token');
 
-    if (token == null) {
-      return;
-    }
+    if (token == null) return;
 
     const String generateQRUrl = "http://192.168.1.95:8000/api/generate-qr/";
 
@@ -82,11 +77,10 @@ class _QRScreenState extends State<QRScreen> {
       );
 
       if (response.statusCode == 201) {
-        final Map<String, dynamic> responseData = jsonDecode(response.body);
-        setState(() {
-          qrData = responseData['qr_code_url'];
-        });
         fetchMyPets(); // Actualiza la lista de mascotas
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('QR generado correctamente')),
+        );
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Error al generar el QR: ${response.body}')),
@@ -103,9 +97,7 @@ class _QRScreenState extends State<QRScreen> {
     final prefs = await SharedPreferences.getInstance();
     final String? token = prefs.getString('jwt_token');
 
-    if (token == null) {
-      return;
-    }
+    if (token == null) return;
 
     const String deleteQRUrl = "http://192.168.1.95:8000/api/qr/delete/";
 
@@ -116,13 +108,10 @@ class _QRScreenState extends State<QRScreen> {
       );
 
       if (response.statusCode == 200) {
-        setState(() {
-          qrData = ""; // Limpiar el QR generado
-        });
         fetchMyPets(); // Actualiza la lista de mascotas
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('QR eliminado correctamente')));
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('QR eliminado correctamente')),
+        );
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Error al eliminar el QR: ${response.body}')),
@@ -135,26 +124,19 @@ class _QRScreenState extends State<QRScreen> {
     }
   }
 
-  void _showQRPreview(String qrCodeUrl) {
+  void _showQRDetails(String qrContent) {
     showDialog(
       context: context,
       builder: (BuildContext context) {
         return AlertDialog(
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              QrImageView(
-                data: qrCodeUrl,
-                version: QrVersions.auto,
-                size: 250.0,
-              ),
-              const SizedBox(height: 20),
-              ElevatedButton(
-                onPressed: () => Navigator.of(context).pop(),
-                child: const Text("Cerrar"),
-              ),
-            ],
-          ),
+          title: const Text("Información del QR"),
+          content: SingleChildScrollView(child: Text(qrContent)),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text("Cerrar"),
+            ),
+          ],
         );
       },
     );
@@ -179,113 +161,102 @@ class _QRScreenState extends State<QRScreen> {
             isLoading
                 ? const CircularProgressIndicator()
                 : Expanded(
-                  child: ListView.builder(
-                    itemCount: myPets.length,
-                    itemBuilder: (context, index) {
-                      final pet = myPets[index];
-                      final petId = pet['id'];
-                      final qrId = pet['qrId']; // qrId es un número entero
+              child: ListView.builder(
+                itemCount: myPets.length,
+                itemBuilder: (context, index) {
+                  final pet = myPets[index];
+                  final petId = pet['id'];
+                  final hasQR = pet['qrId'] != null;
 
-                      // Verificar si el qrId es válido (no es 1 ni null)
-                      final bool hasValidQR = qrId != null && qrId != 1;
-                      final qrCodeUrl =
-                          hasValidQR
-                              ? "http://192.168.1.95:8000/media/qr_$qrId.png"
-                              : null;
+                  // Generar el contenido del QR
+                  final qrContent =
+                      "Nombre: ${pet['name']}\n"
+                      "Raza: ${pet['breed']}\n"
+                      "Color: ${pet['color']}\n"
+                      "Fecha de Nacimiento: ${pet['birthDate']}";
 
-                      return Card(
-                        elevation: 3,
-                        margin: const EdgeInsets.symmetric(vertical: 10),
-                        child: Padding(
-                          padding: const EdgeInsets.all(16.0),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                pet['name'] ?? "Sin nombre",
-                                style: const TextStyle(
-                                  fontSize: 18,
-                                  fontWeight: FontWeight.bold,
+                  return Card(
+                    elevation: 3,
+                    margin: const EdgeInsets.symmetric(vertical: 10),
+                    child: Padding(
+                      padding: const EdgeInsets.all(16.0),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            pet['name'] ?? "Sin nombre",
+                            style: const TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          const SizedBox(height: 10),
+                          Text(
+                            "Raza: ${pet['breed'] ?? "Sin raza"}",
+                            style: const TextStyle(fontSize: 14),
+                          ),
+                          const SizedBox(height: 10),
+                          if (hasQR)
+                            Column(
+                              children: [
+                                QrImageView(
+                                  data:
+                                  qrContent, // QR ahora muestra la info
+                                  version: QrVersions.auto,
+                                  size: 150.0,
                                 ),
-                              ),
-                              const SizedBox(height: 10),
-                              Text(
-                                "Raza: ${pet['breed'] ?? "Sin raza"}",
-                                style: const TextStyle(fontSize: 14),
-                              ),
-                              const SizedBox(height: 10),
-                              if (hasValidQR && qrCodeUrl != null)
-                                Column(
+                                const SizedBox(height: 10),
+                                Row(
+                                  mainAxisAlignment:
+                                  MainAxisAlignment.spaceEvenly,
                                   children: [
-                                    QrImageView(
-                                      data: qrCodeUrl,
-                                      version: QrVersions.auto,
-                                      size: 150.0,
+                                    ElevatedButton(
+                                      onPressed:
+                                          () => _showQRDetails(qrContent),
+                                      style: ElevatedButton.styleFrom(
+                                        backgroundColor: Colors.green,
+                                      ),
+                                      child: const Text(
+                                        "Ver Info",
+                                        style: TextStyle(
+                                          color: Colors.white,
+                                        ),
+                                      ),
                                     ),
-                                    const SizedBox(height: 10),
-                                    Row(
-                                      mainAxisAlignment:
-                                          MainAxisAlignment.spaceEvenly,
-                                      children: [
-                                        ElevatedButton(
-                                          onPressed:
-                                              () => _showQRPreview(qrCodeUrl),
-                                          style: ElevatedButton.styleFrom(
-                                            backgroundColor: Colors.green,
-                                            padding: const EdgeInsets.symmetric(
-                                              horizontal: 20,
-                                              vertical: 10,
-                                            ),
-                                          ),
-                                          child: const Text(
-                                            "Ver QR",
-                                            style: TextStyle(
-                                              color: Colors.white,
-                                            ),
-                                          ),
+                                    ElevatedButton(
+                                      onPressed: () => deleteQR(petId),
+                                      style: ElevatedButton.styleFrom(
+                                        backgroundColor: Colors.red,
+                                      ),
+                                      child: const Text(
+                                        "Eliminar QR",
+                                        style: TextStyle(
+                                          color: Colors.white,
                                         ),
-                                        ElevatedButton(
-                                          onPressed: () => deleteQR(petId),
-                                          style: ElevatedButton.styleFrom(
-                                            backgroundColor: Colors.red,
-                                            padding: const EdgeInsets.symmetric(
-                                              horizontal: 20,
-                                              vertical: 10,
-                                            ),
-                                          ),
-                                          child: const Text(
-                                            "Eliminar QR",
-                                            style: TextStyle(
-                                              color: Colors.white,
-                                            ),
-                                          ),
-                                        ),
-                                      ],
+                                      ),
                                     ),
                                   ],
                                 ),
-                              if (!hasValidQR)
-                                ElevatedButton(
-                                  onPressed: () => generateQR(petId),
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: Colors.blue,
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 20,
-                                      vertical: 10,
-                                    ),
-                                  ),
-                                  child: const Text(
-                                    "Generar QR",
-                                    style: TextStyle(color: Colors.white),
-                                  ),
-                                ),
-                            ],
-                          ),
-                        ),
-                      );
-                    },
-                  ),
-                ),
+                              ],
+                            ),
+                          if (!hasQR)
+                            ElevatedButton(
+                              onPressed: () => generateQR(petId),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.blue,
+                              ),
+                              child: const Text(
+                                "Generar QR",
+                                style: TextStyle(color: Colors.white),
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ),
           ],
         ),
       ),
