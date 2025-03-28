@@ -109,9 +109,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 Text("Regístrate", style: titleStyle),
                 SizedBox(height: 20),
                 _buildTextField("Nombre*", nameController),
-                _buildTextField("Primer nombre*", firstNameController),
+                _buildTextField("Primer Apellido*", firstNameController),
                 _buildTextField(
-                  "Apellido",
+                  "Segundo Apellido",
                   lastNameController,
                   required: false,
                 ),
