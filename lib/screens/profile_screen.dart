@@ -3,6 +3,8 @@ import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'dart:io';
 import 'package:image_picker/image_picker.dart';
+import 'package:provider/provider.dart';
+import '../services/theme_provider.dart';
 import 'custom_app_bar.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -22,7 +24,8 @@ Future<String?> getToken() async {
 }
 
 const Color primaryColor = Color(0xFFD0894B);
-const String baseUrl = "http://137.131.25.37:8000"; // URL base del backend
+const Color darkPrimaryColor = Color(0xFF8B5A2B);
+const String baseUrl = "http://137.131.25.37:8000";
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -34,40 +37,55 @@ class ProfileScreen extends StatefulWidget {
 class _ProfileScreenState extends State<ProfileScreen> {
   File? _image;
   final ImagePicker _picker = ImagePicker();
-  String? _profilePhotoUrl; // URL de la foto de perfil
+  String? _profilePhotoUrl;
 
   @override
   void initState() {
     super.initState();
-    _loadProfilePhotoUrl(); // Cargar la URL de la foto de perfil al iniciar
+    _loadProfilePhotoUrl();
   }
 
-  // Cargar la URL de la foto de perfil desde SharedPreferences
+  Widget _buildThemeSwitch(BuildContext context) {
+    final themeProvider = Provider.of<ThemeProvider>(context);
+    final isDarkMode = themeProvider.isDarkMode;
+
+    return SwitchListTile(
+      title: Text(
+        isDarkMode ? 'Modo Oscuro' : 'Modo Claro',
+        style: TextStyle(
+          color: Theme.of(context).textTheme.bodyLarge?.color,
+        ),
+      ),
+      value: isDarkMode,
+      onChanged: (value) {
+        themeProvider.toggleTheme(value);
+      },
+      secondary: Icon(
+        isDarkMode ? Icons.nightlight_round : Icons.wb_sunny,
+        color: Theme.of(context).iconTheme.color,
+      ),
+    );
+  }
+
   Future<void> _loadProfilePhotoUrl() async {
     final prefs = await SharedPreferences.getInstance();
     final String? userId = prefs.getString('userId');
     final String? imageUrl = prefs.getString('profilePhotoUrl_$userId');
 
     if (imageUrl != null) {
-      // Verifica si la URL ya incluye la baseUrl
       if (!imageUrl.startsWith(baseUrl)) {
-        // Si no incluye la baseUrl, concaténala
         final String absoluteImageUrl = '$baseUrl$imageUrl';
         setState(() {
-          _profilePhotoUrl =
-              '$absoluteImageUrl?${DateTime.now().millisecondsSinceEpoch}';
+          _profilePhotoUrl = '$absoluteImageUrl?${DateTime.now().millisecondsSinceEpoch}';
         });
       } else {
-        // Si ya incluye la baseUrl, úsala directamente
         setState(() {
-          _profilePhotoUrl =
-              '$imageUrl?${DateTime.now().millisecondsSinceEpoch}';
+          _profilePhotoUrl = '$imageUrl?${DateTime.now().millisecondsSinceEpoch}';
         });
       }
     }
   }
 
-  // Seleccionar una imagen desde la galería
   Future<void> _pickImage() async {
     final pickedFile = await _picker.pickImage(source: ImageSource.gallery);
 
@@ -75,105 +93,64 @@ class _ProfileScreenState extends State<ProfileScreen> {
       setState(() {
         _image = File(pickedFile.path);
       });
-
-      // Subir la imagen automáticamente
       await _uploadImage();
-    } else {
-      print('No image selected.');
     }
   }
 
-  // Subir la imagen al backend
   Future<void> _uploadImage() async {
     if (_image == null) return;
 
     final url = Uri.parse('$baseUrl/api/users-profile/');
     final token = await getToken();
 
-    var request =
-        http.MultipartRequest('POST', url)
-          ..headers['Authorization'] = 'Bearer $token'
-          ..fields['userId'] =
-              '1' // Asegúrate de incluir el ID del usuario
-          ..fields['description'] =
-              'Descripción del perfil' // Ejemplo de campo adicional
-          ..fields['state'] =
-              'Estado' // Ejemplo de campo adicional
-          ..fields['city'] =
-              'Ciudad' // Ejemplo de campo adicional
-          ..fields['address'] =
-              'Dirección' // Ejemplo de campo adicional
-          ..files.add(
-            await http.MultipartFile.fromPath(
-              'profilePhoto', // Nombre del campo en el backend
-              _image!.path,
-            ),
-          );
+    var request = http.MultipartRequest('POST', url)
+      ..headers['Authorization'] = 'Bearer $token'
+      ..fields['userId'] = '1'
+      ..fields['description'] = 'Descripción del perfil'
+      ..fields['state'] = 'Estado'
+      ..fields['city'] = 'Ciudad'
+      ..fields['address'] = 'Dirección'
+      ..files.add(
+        await http.MultipartFile.fromPath('profilePhoto', _image!.path),
+      );
 
     try {
       var response = await request.send();
 
       if (response.statusCode == 201) {
-        // 201 Created es el código esperado para una creación exitosa
         final responseData = await response.stream.bytesToString();
         final Map<String, dynamic> data = jsonDecode(responseData);
 
-        // Verifica que la respuesta contenga la URL de la imagen
         if (data.containsKey('profilePhoto') && data['profilePhoto'] != null) {
           final String imageUrl = data['profilePhoto'];
-
-          // Extraer la parte relativa de la URL si es absoluta
           final String relativeImageUrl = imageUrl.replaceFirst(baseUrl, '');
 
-          // Guardar solo la parte relativa de la URL en SharedPreferences
           final prefs = await SharedPreferences.getInstance();
-          final String? userId = prefs.getString(
-            'userId',
-          ); // Obtener el ID del usuario actual
+          final String? userId = prefs.getString('userId');
           await prefs.setString('profilePhotoUrl_$userId', relativeImageUrl);
 
-          // Actualizar el estado con la nueva URL
           setState(() {
-            _profilePhotoUrl =
-                '$baseUrl$relativeImageUrl?${DateTime.now().millisecondsSinceEpoch}';
+            _profilePhotoUrl = '$baseUrl$relativeImageUrl?${DateTime.now().millisecondsSinceEpoch}';
           });
 
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Foto de perfil actualizada correctamente')),
-          );
-        } else {
-          throw Exception(
-            'La respuesta del backend no contiene la URL de la imagen',
+            const SnackBar(content: Text('Foto de perfil actualizada correctamente')),
           );
         }
-      } else if (response.statusCode == 400) {
-        final responseData = await response.stream.bytesToString();
-        final Map<String, dynamic> data = jsonDecode(responseData);
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Error: ${data['userId'][0]}')));
-      } else {
-        throw Exception(
-          'Error al subir la foto de perfil: ${response.statusCode}',
-        );
       }
     } catch (e) {
-      print('Error al subir la imagen: $e');
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Error al subir la foto de perfil: $e')),
       );
     }
   }
 
-  // Función para cerrar sesión
   Future<void> logout(BuildContext context) async {
     const String logoutUrl = "$baseUrl/api/users/logout/";
 
     try {
       final token = await getToken();
-      if (token == null) {
-        throw Exception('No se encontró un token de autenticación.');
-      }
+      if (token == null) return;
 
       final response = await http.post(
         Uri.parse(logoutUrl),
@@ -184,34 +161,25 @@ class _ProfileScreenState extends State<ProfileScreen> {
       );
 
       if (response.statusCode == 200) {
-        // Limpiar la URL de la imagen de perfil al cerrar sesión
         final prefs = await SharedPreferences.getInstance();
         final String? userId = prefs.getString('userId');
         await prefs.remove('profilePhotoUrl_$userId');
-
         await removeToken();
         Navigator.pushReplacementNamed(context, '/');
-      } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error al cerrar sesión: ${response.body}')),
-        );
       }
     } catch (e) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Error de conexión: $e')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error de conexión: $e')),
+      );
     }
   }
 
-  // Función para eliminar la cuenta
   Future<void> deleteAccount(BuildContext context) async {
     const String deleteUrl = "$baseUrl/api/users/delete/1/";
 
     try {
       final token = await getToken();
-      if (token == null) {
-        throw Exception('No se encontró un token de autenticación.');
-      }
+      if (token == null) return;
 
       final response = await http.delete(
         Uri.parse(deleteUrl),
@@ -221,31 +189,20 @@ class _ProfileScreenState extends State<ProfileScreen> {
       if (response.statusCode == 200) {
         await removeToken();
         Navigator.pushReplacementNamed(context, '/');
-      } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error al eliminar la cuenta: ${response.body}'),
-          ),
-        );
       }
     } catch (e) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Error de conexión: $e')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error de conexión: $e')),
+      );
     }
   }
 
-  // Función para obtener la información del usuario actual
   Future<Map<String, dynamic>> fetchUserInfo(BuildContext context) async {
     const String userInfoUrl = "$baseUrl/api/users/me/";
 
     try {
       final token = await getToken();
-      if (token == null) {
-        await removeToken();
-        Navigator.pushReplacementNamed(context, '/login');
-        throw Exception('No se encontró un token de autenticación.');
-      }
+      if (token == null) throw Exception('No hay token');
 
       final response = await http.get(
         Uri.parse(userInfoUrl),
@@ -254,76 +211,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
       if (response.statusCode == 200) {
         return jsonDecode(response.body);
-      } else if (response.statusCode == 401) {
-        final newToken = await refreshToken(context);
-        if (newToken == null) {
-          await removeToken();
-          Navigator.pushReplacementNamed(context, '/login');
-          throw Exception('No se pudo refrescar el token.');
-        }
-
-        final newResponse = await http.get(
-          Uri.parse(userInfoUrl),
-          headers: {'Authorization': 'Bearer $newToken'},
-        );
-
-        if (newResponse.statusCode == 200) {
-          return jsonDecode(newResponse.body);
-        } else {
-          await removeToken();
-          Navigator.pushReplacementNamed(context, '/login');
-          throw Exception(
-            'Error al obtener la información del usuario: ${newResponse.statusCode}',
-          );
-        }
       } else {
-        await removeToken();
-        Navigator.pushReplacementNamed(context, '/login');
-        throw Exception(
-          'Error al obtener la información del usuario: ${response.statusCode}',
-        );
+        throw Exception('Error: ${response.statusCode}');
       }
     } catch (e) {
       await removeToken();
       Navigator.pushReplacementNamed(context, '/login');
-      throw Exception('Error de conexión: $e');
-    }
-  }
-
-  Future<String?> refreshToken(BuildContext context) async {
-    const String refreshUrl = "$baseUrl/api/token/refresh/";
-    final prefs = await SharedPreferences.getInstance();
-    final refreshToken = prefs.getString('refresh_token');
-
-    if (refreshToken == null) {
-      await removeToken();
-      Navigator.pushReplacementNamed(context, '/login');
-      throw Exception('No se encontró un refresh token.');
-    }
-
-    try {
-      final response = await http.post(
-        Uri.parse(refreshUrl),
-        headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({'refresh': refreshToken}),
-      );
-
-      if (response.statusCode == 200) {
-        final Map<String, dynamic> responseData = jsonDecode(response.body);
-        final String newAccessToken = responseData['access'];
-        await prefs.setString('jwt_token', newAccessToken);
-        return newAccessToken;
-      } else if (response.statusCode == 401) {
-        await removeToken();
-        Navigator.pushReplacementNamed(context, '/login');
-        throw Exception('Sesión expirada. Inicia sesión nuevamente.');
-      } else {
-        throw Exception('Error al refrescar el token: ${response.body}');
-      }
-    } catch (e) {
-      await removeToken();
-      Navigator.pushReplacementNamed(context, '/login');
-      throw Exception('Error de conexión: $e');
+      rethrow;
     }
   }
 
@@ -337,11 +231,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
           future: fetchUserInfo(context),
           builder: (context, snapshot) {
             if (snapshot.connectionState == ConnectionState.waiting) {
-              return Center(child: CircularProgressIndicator());
+              return const Center(child: CircularProgressIndicator());
             } else if (snapshot.hasError) {
               return Center(child: Text('Error: ${snapshot.error}'));
             } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
-              return Center(child: Text('No se encontraron datos del usuario'));
+              return const Center(child: Text('No se encontraron datos del usuario'));
             }
 
             final userInfo = snapshot.data!;
@@ -351,43 +245,40 @@ class _ProfileScreenState extends State<ProfileScreen> {
               children: [
                 Text(
                   "Mi Perfil",
-                  style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+                  style: Theme.of(context).textTheme.headlineSmall,
                   textAlign: TextAlign.center,
                 ),
+                const SizedBox(height: 20),
                 GestureDetector(
                   onTap: _pickImage,
                   child: CircleAvatar(
                     radius: 50,
-                    backgroundImage:
-                        _profilePhotoUrl != null
-                            ? NetworkImage(
-                              _profilePhotoUrl!,
-                              headers: {
-                                "Cache-Control": "no-cache",
-                              }, // Evitar caché
-                            )
-                            : AssetImage("assets/images/profile.jpg")
-                                as ImageProvider,
-                    onBackgroundImageError: (exception, stackTrace) {
-                      // Manejar errores al cargar la imagen
-                      print("Error al cargar la imagen de perfil: $exception");
-                    },
+                    backgroundImage: _profilePhotoUrl != null
+                        ? NetworkImage(
+                      _profilePhotoUrl!,
+                      headers: {"Cache-Control": "no-cache"},
+                    )
+                        : const AssetImage("assets/images/profile.jpg") as ImageProvider,
                   ),
                 ),
-                SizedBox(height: 10),
+                const SizedBox(height: 10),
                 Text(
                   userInfo['name'] ?? 'Nombre no disponible',
-                  style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+                  style: Theme.of(context).textTheme.titleLarge,
                 ),
                 Text(
                   "ID de usuario: #${userInfo['id'] ?? 'N/A'}",
-                  style: TextStyle(fontSize: 16, color: Colors.grey),
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: Colors.grey),
                 ),
-                SizedBox(height: 20),
-                Divider(),
-                SizedBox(height: 10),
-                ElevatedButton(
-                  onPressed: () async {
+                const SizedBox(height: 20),
+                const Divider(),
+                _buildThemeSwitch(context),
+                const Divider(),
+                const SizedBox(height: 10),
+                _buildButton(
+                  context: context,
+                  text: "Vista Previa",
+                  onPressed: () {
                     Navigator.push(
                       context,
                       MaterialPageRoute(
@@ -395,95 +286,68 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       ),
                     );
                   },
-                  style: ElevatedButton.styleFrom(
-                    minimumSize: Size(double.infinity, 50),
-                    backgroundColor: Colors.teal,
-                  ),
-                  child: Text(
-                    "Vista Previa",
-                    style: TextStyle(fontSize: 16, color: Colors.white),
-                  ),
                 ),
-                SizedBox(height: 10),
-                ElevatedButton(
-                  onPressed: () {
-                    Navigator.pushNamed(context, '/lost-pets');
-                  },
-                  style: ElevatedButton.styleFrom(
-                    minimumSize: Size(double.infinity, 50),
-                    backgroundColor: Colors.teal,
-                  ),
-                  child: Text(
-                    "Mis publicaciones",
-                    style: TextStyle(fontSize: 16, color: Colors.white),
-                  ),
+                _buildButton(
+                  context: context,
+                  text: "Mis publicaciones",
+                  onPressed: () => Navigator.pushNamed(context, '/lost-pets'),
                 ),
-                SizedBox(height: 10),
-                ElevatedButton(
+                _buildButton(
+                  context: context,
+                  text: "Editar Información",
                   onPressed: () {
                     Navigator.push(
                       context,
                       MaterialPageRoute(
-                        builder:
-                            (context) => EditProfileScreen(userInfo: userInfo),
+                        builder: (context) => EditProfileScreen(userInfo: userInfo),
                       ),
                     );
                   },
-                  style: ElevatedButton.styleFrom(
-                    minimumSize: Size(double.infinity, 50),
-                    backgroundColor: Colors.teal,
-                  ),
-                  child: Text(
-                    "Editar Información",
-                    style: TextStyle(fontSize: 16, color: Colors.white),
-                  ),
                 ),
-                SizedBox(height: 10),
-                ElevatedButton(
-                  onPressed: () {
-                    Navigator.pushNamed(context, '/messages');
-                  },
-                  style: ElevatedButton.styleFrom(
-                    minimumSize: Size(double.infinity, 50),
-                    backgroundColor: Colors.teal,
-                  ),
-                  child: Text(
-                    "Ir a Mensajes",
-                    style: TextStyle(fontSize: 16, color: Colors.white),
-                  ),
+                _buildButton(
+                  context: context,
+                  text: "Ir a Mensajes",
+                  onPressed: () => Navigator.pushNamed(context, '/messages'),
                 ),
-                SizedBox(height: 10),
-                ElevatedButton(
-                  onPressed: () {
-                    logout(context);
-                  },
-                  style: ElevatedButton.styleFrom(
-                    minimumSize: Size(double.infinity, 50),
-                    backgroundColor: primaryColor,
-                  ),
-                  child: Text(
-                    "Cerrar Sesión",
-                    style: TextStyle(fontSize: 16, color: Colors.black),
-                  ),
+                _buildButton(
+                  context: context,
+                  text: "Cerrar Sesión",
+                  onPressed: () => logout(context),
+                  backgroundColor: primaryColor,
+                  textColor: Colors.black,
                 ),
-                SizedBox(height: 10),
-                ElevatedButton(
-                  onPressed: () {
-                    deleteAccount(context);
-                  },
-                  style: ElevatedButton.styleFrom(
-                    minimumSize: Size(double.infinity, 50),
-                    backgroundColor: primaryColor,
-                  ),
-                  child: Text(
-                    "Eliminar Cuenta",
-                    style: TextStyle(fontSize: 16, color: Colors.black),
-                  ),
+                _buildButton(
+                  context: context,
+                  text: "Eliminar Cuenta",
+                  onPressed: () => deleteAccount(context),
+                  backgroundColor: primaryColor,
+                  textColor: Colors.black,
                 ),
               ],
             );
           },
         ),
+      ),
+    );
+  }
+
+  Widget _buildButton({
+    required BuildContext context,
+    required String text,
+    required VoidCallback onPressed,
+    Color? backgroundColor,
+    Color? textColor,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: ElevatedButton(
+        onPressed: onPressed,
+        style: ElevatedButton.styleFrom(
+          minimumSize: const Size(double.infinity, 50),
+          backgroundColor: backgroundColor ?? Colors.teal,
+          foregroundColor: textColor ?? Colors.white,
+        ),
+        child: Text(text),
       ),
     );
   }
@@ -519,8 +383,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   }
 
   Future<void> _updateUserInfo() async {
-    final String updateUrl =
-        "$baseUrl/api/users/update/${widget.userInfo['id']}/";
+    final String updateUrl = "$baseUrl/api/users/update/${widget.userInfo['id']}/";
 
     final Map<String, dynamic> updatedData = {
       'name': _nameController.text,
@@ -533,9 +396,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
 
     try {
       final token = await getToken();
-      if (token == null) {
-        throw Exception('No se encontró un token de autenticación.');
-      }
+      if (token == null) return;
 
       final response = await http.put(
         Uri.parse(updateUrl),
@@ -548,29 +409,21 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
 
       if (response.statusCode == 200) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Información actualizada correctamente')),
+          const SnackBar(content: Text('Información actualizada correctamente')),
         );
         Navigator.pop(context);
-      } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              'Error al actualizar la información: ${response.body}',
-            ),
-          ),
-        );
       }
     } catch (e) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Error de conexión: $e')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error de conexión: $e')),
+      );
     }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text("Editar Información")),
+      appBar: AppBar(title: const Text("Editar Información")),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Form(
@@ -579,42 +432,40 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
             children: [
               TextFormField(
                 controller: _nameController,
-                decoration: InputDecoration(labelText: "Nombre"),
+                decoration: const InputDecoration(labelText: "Nombre"),
               ),
-              SizedBox(height: 10),
+              const SizedBox(height: 10),
               TextFormField(
                 controller: _firstNameController,
-                decoration: InputDecoration(labelText: "Apellido"),
+                decoration: const InputDecoration(labelText: "Apellido"),
               ),
-              SizedBox(height: 10),
+              const SizedBox(height: 10),
               TextFormField(
                 controller: _ageController,
-                decoration: InputDecoration(labelText: "Edad"),
+                decoration: const InputDecoration(labelText: "Edad"),
                 keyboardType: TextInputType.number,
               ),
-              SizedBox(height: 10),
+              const SizedBox(height: 10),
               TextFormField(
                 controller: _emailController,
-                decoration: InputDecoration(labelText: "Correo"),
+                decoration: const InputDecoration(labelText: "Correo"),
                 keyboardType: TextInputType.emailAddress,
               ),
-              SizedBox(height: 10),
+              const SizedBox(height: 10),
               TextFormField(
                 controller: _phoneController,
-                decoration: InputDecoration(labelText: "Teléfono"),
+                decoration: const InputDecoration(labelText: "Teléfono"),
                 keyboardType: TextInputType.phone,
               ),
-              SizedBox(height: 10),
+              const SizedBox(height: 10),
               TextFormField(
                 controller: _addressController,
-                decoration: InputDecoration(labelText: "Dirección"),
+                decoration: const InputDecoration(labelText: "Dirección"),
               ),
-              SizedBox(height: 20),
+              const SizedBox(height: 20),
               ElevatedButton(
-                onPressed: () {
-                  _updateUserInfo();
-                },
-                child: Text("Guardar Cambios"),
+                onPressed: _updateUserInfo,
+                child: const Text("Guardar Cambios"),
               ),
             ],
           ),
@@ -632,61 +483,62 @@ class PreviewScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text("Vista Previa"), backgroundColor: Colors.teal),
+      appBar: AppBar(
+        title: const Text("Vista Previa"),
+        backgroundColor: Colors.teal,
+      ),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
-            CircleAvatar(
+            const CircleAvatar(
               radius: 50,
               backgroundImage: AssetImage("assets/images/profile.jpg"),
             ),
-            SizedBox(height: 20),
+            const SizedBox(height: 20),
             Text(
               userInfo['name'] ?? 'Nombre no disponible',
-              style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+              style: Theme.of(context).textTheme.titleLarge,
             ),
-            SizedBox(height: 10),
+            const SizedBox(height: 10),
             Text(
               userInfo['first_name'] ?? 'Apellido no disponible',
-              style: TextStyle(fontSize: 18, color: Colors.grey),
+              style: Theme.of(context).textTheme.bodyLarge?.copyWith(color: Colors.grey),
             ),
-            SizedBox(height: 20),
+            const SizedBox(height: 20),
             Text(
               "ID de usuario: #${userInfo['id'] ?? 'N/A'}",
-              style: TextStyle(fontSize: 16, color: Colors.grey),
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: Colors.grey),
             ),
-            SizedBox(height: 10),
+            const SizedBox(height: 10),
             Text(
               "Edad: ${userInfo['age'] ?? 'N/A'}",
-              style: TextStyle(fontSize: 16, color: Colors.grey),
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: Colors.grey),
             ),
-            SizedBox(height: 10),
+            const SizedBox(height: 10),
             Text(
               "Correo: ${userInfo['email'] ?? 'N/A'}",
-              style: TextStyle(fontSize: 16, color: Colors.grey),
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: Colors.grey),
             ),
-            SizedBox(height: 10),
+            const SizedBox(height: 10),
             Text(
               "Teléfono: ${userInfo['phone_number'] ?? 'N/A'}",
-              style: TextStyle(fontSize: 16, color: Colors.grey),
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: Colors.grey),
             ),
-            SizedBox(height: 10),
+            const SizedBox(height: 10),
             Text(
               "Dirección: ${userInfo['address'] ?? 'N/A'}",
-              style: TextStyle(fontSize: 16, color: Colors.grey),
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: Colors.grey),
             ),
-            SizedBox(height: 30),
+            const SizedBox(height: 30),
             ElevatedButton(
-              onPressed: () {
-                Navigator.pop(context);
-              },
+              onPressed: () => Navigator.pop(context),
               style: ElevatedButton.styleFrom(
-                minimumSize: Size(double.infinity, 50),
+                minimumSize: const Size(double.infinity, 50),
                 backgroundColor: Colors.teal,
               ),
-              child: Text(
+              child: const Text(
                 "Regresar",
                 style: TextStyle(fontSize: 16, color: Colors.white),
               ),
