@@ -67,6 +67,103 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
+  Widget _buildColorBlindnessSettings(BuildContext context) {
+    final themeProvider = Provider.of<ThemeProvider>(context);
+
+    return ExpansionTile(
+      title: Text(
+        'Modo Daltonismo',
+        style: TextStyle(
+          color: Theme.of(context).textTheme.bodyLarge?.color,
+        ),
+      ),
+      leading: Icon(
+        Icons.color_lens,
+        color: Theme.of(context).iconTheme.color,
+      ),
+      children: [
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16.0),
+          child: Column(
+            children: [
+              _buildColorBlindnessTypeDropdown(themeProvider),
+              const SizedBox(height: 16),
+              _buildSeveritySlider(themeProvider, context),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildColorBlindnessTypeDropdown(ThemeProvider themeProvider) {
+    return DropdownButtonFormField<ColorBlindnessType>(
+      value: themeProvider.colorBlindnessType,
+      decoration: InputDecoration(
+        labelText: 'Tipo de daltonismo',
+        border: const OutlineInputBorder(),
+      ),
+      items: ColorBlindnessType.values.map((type) {
+        return DropdownMenuItem<ColorBlindnessType>(
+          value: type,
+          child: Text(_getColorBlindnessTypeName(type)),
+        );
+      }).toList(),
+      onChanged: (type) {
+        if (type != null) {
+          themeProvider.setColorBlindness(
+            type: type,
+            severity: themeProvider.severity,
+          );
+        }
+      },
+    );
+  }
+
+  String _getColorBlindnessTypeName(ColorBlindnessType type) {
+    switch (type) {
+      case ColorBlindnessType.none:
+        return 'Ninguno';
+      case ColorBlindnessType.protanopia:
+        return 'Protanopia (rojo-verde)';
+      case ColorBlindnessType.deuteranopia:
+        return 'Deuteranopia (rojo-verde)';
+      case ColorBlindnessType.tritanopia:
+        return 'Tritanopia (azul-amarillo)';
+      case ColorBlindnessType.achromatopsia:
+        return 'Achromatopsia (monocromático)';
+      default:
+        return 'Desconocido';
+    }
+  }
+
+  Widget _buildSeveritySlider(ThemeProvider themeProvider, BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Severidad: ${(themeProvider.severity * 100).round()}%',
+          style: TextStyle(
+            color: Theme.of(context).textTheme.bodyLarge?.color,
+          ),
+        ),
+        Slider(
+          value: themeProvider.severity,
+          min: 0,
+          max: 1,
+          divisions: 10,
+          label: '${(themeProvider.severity * 100).round()}%',
+          onChanged: (value) {
+            themeProvider.setColorBlindness(
+              type: themeProvider.colorBlindnessType,
+              severity: value,
+            );
+          },
+        ),
+      ],
+    );
+  }
+
   Future<void> _loadProfilePhotoUrl() async {
     final prefs = await SharedPreferences.getInstance();
     final String? userId = prefs.getString('userId');
@@ -227,105 +324,109 @@ class _ProfileScreenState extends State<ProfileScreen> {
       appBar: CustomAppBar(),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
-        child: FutureBuilder<Map<String, dynamic>>(
-          future: fetchUserInfo(context),
-          builder: (context, snapshot) {
-            if (snapshot.connectionState == ConnectionState.waiting) {
-              return const Center(child: CircularProgressIndicator());
-            } else if (snapshot.hasError) {
-              return Center(child: Text('Error: ${snapshot.error}'));
-            } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
-              return const Center(child: Text('No se encontraron datos del usuario'));
-            }
+        child: SingleChildScrollView(
+          child: FutureBuilder<Map<String, dynamic>>(
+            future: fetchUserInfo(context),
+            builder: (context, snapshot) {
+              if (snapshot.connectionState == ConnectionState.waiting) {
+                return const Center(child: CircularProgressIndicator());
+              } else if (snapshot.hasError) {
+                return Center(child: Text('Error: ${snapshot.error}'));
+              } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
+                return const Center(child: Text('No se encontraron datos del usuario'));
+              }
 
-            final userInfo = snapshot.data!;
+              final userInfo = snapshot.data!;
 
-            return Column(
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: [
-                Text(
-                  "Mi Perfil",
-                  style: Theme.of(context).textTheme.headlineSmall,
-                  textAlign: TextAlign.center,
-                ),
-                const SizedBox(height: 20),
-                GestureDetector(
-                  onTap: _pickImage,
-                  child: CircleAvatar(
-                    radius: 50,
-                    backgroundImage: _profilePhotoUrl != null
-                        ? NetworkImage(
-                      _profilePhotoUrl!,
-                      headers: {"Cache-Control": "no-cache"},
-                    )
-                        : const AssetImage("assets/images/profile.jpg") as ImageProvider,
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  Text(
+                    "Mi Perfil",
+                    style: Theme.of(context).textTheme.headlineSmall,
+                    textAlign: TextAlign.center,
                   ),
-                ),
-                const SizedBox(height: 10),
-                Text(
-                  userInfo['name'] ?? 'Nombre no disponible',
-                  style: Theme.of(context).textTheme.titleLarge,
-                ),
-                Text(
-                  "ID de usuario: #${userInfo['id'] ?? 'N/A'}",
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: Colors.grey),
-                ),
-                const SizedBox(height: 20),
-                const Divider(),
-                _buildThemeSwitch(context),
-                const Divider(),
-                const SizedBox(height: 10),
-                _buildButton(
-                  context: context,
-                  text: "Vista Previa",
-                  onPressed: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => PreviewScreen(userInfo: userInfo),
-                      ),
-                    );
-                  },
-                ),
-                _buildButton(
-                  context: context,
-                  text: "Mis publicaciones",
-                  onPressed: () => Navigator.pushNamed(context, '/lost-pets'),
-                ),
-                _buildButton(
-                  context: context,
-                  text: "Editar Información",
-                  onPressed: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => EditProfileScreen(userInfo: userInfo),
-                      ),
-                    );
-                  },
-                ),
-                _buildButton(
-                  context: context,
-                  text: "Ir a Mensajes",
-                  onPressed: () => Navigator.pushNamed(context, '/messages'),
-                ),
-                _buildButton(
-                  context: context,
-                  text: "Cerrar Sesión",
-                  onPressed: () => logout(context),
-                  backgroundColor: primaryColor,
-                  textColor: Colors.black,
-                ),
-                _buildButton(
-                  context: context,
-                  text: "Eliminar Cuenta",
-                  onPressed: () => deleteAccount(context),
-                  backgroundColor: primaryColor,
-                  textColor: Colors.black,
-                ),
-              ],
-            );
-          },
+                  const SizedBox(height: 20),
+                  GestureDetector(
+                    onTap: _pickImage,
+                    child: CircleAvatar(
+                      radius: 50,
+                      backgroundImage: _profilePhotoUrl != null
+                          ? NetworkImage(
+                        _profilePhotoUrl!,
+                        headers: {"Cache-Control": "no-cache"},
+                      )
+                          : const AssetImage("assets/images/profile.jpg") as ImageProvider,
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  Text(
+                    userInfo['name'] ?? 'Nombre no disponible',
+                    style: Theme.of(context).textTheme.titleLarge,
+                  ),
+                  Text(
+                    "ID de usuario: #${userInfo['id'] ?? 'N/A'}",
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: Colors.grey),
+                  ),
+                  const SizedBox(height: 20),
+                  const Divider(),
+                  _buildThemeSwitch(context),
+                  _buildColorBlindnessSettings(context),
+                  const Divider(),
+                  const SizedBox(height: 10),
+                  _buildButton(
+                    context: context,
+                    text: "Vista Previa",
+                    onPressed: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => PreviewScreen(userInfo: userInfo),
+                        ),
+                      );
+                    },
+                  ),
+                  _buildButton(
+                    context: context,
+                    text: "Mis publicaciones",
+                    onPressed: () => Navigator.pushNamed(context, '/lost-pets'),
+                  ),
+                  _buildButton(
+                    context: context,
+                    text: "Editar Información",
+                    onPressed: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => EditProfileScreen(userInfo: userInfo),
+                        ),
+                      );
+                    },
+                  ),
+                  _buildButton(
+                    context: context,
+                    text: "Ir a Mensajes",
+                    onPressed: () => Navigator.pushNamed(context, '/messages'),
+                  ),
+                  _buildButton(
+                    context: context,
+                    text: "Cerrar Sesión",
+                    onPressed: () => logout(context),
+                    backgroundColor: primaryColor,
+                    textColor: Colors.black,
+                  ),
+                  _buildButton(
+                    context: context,
+                    text: "Eliminar Cuenta",
+                    onPressed: () => deleteAccount(context),
+                    backgroundColor: primaryColor,
+                    textColor: Colors.black,
+                  ),
+                  const SizedBox(height: 20), // Espacio adicional al final para mejor scroll
+                ],
+              );
+            },
+          ),
         ),
       ),
     );
