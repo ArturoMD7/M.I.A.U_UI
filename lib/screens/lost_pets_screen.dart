@@ -9,8 +9,7 @@ import 'custom_app_bar.dart';
 import 'chat_screen.dart';
 import 'comment_screen.dart';
 import 'messages_screen.dart';
-
-const String baseUrl = "http://137.131.25.37:8000";
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 class LostPetsScreen extends StatefulWidget {
   const LostPetsScreen({super.key});
@@ -25,10 +24,16 @@ class _LostPetsScreenState extends State<LostPetsScreen> {
   String errorMessage = '';
   File? selectedImage;
   late SharedPreferences prefs;
+  late final String apiUrl;
+  late final String baseUrl;
+  late final String mediaUrl;
 
   @override
   void initState() {
     super.initState();
+    apiUrl = dotenv.env['API_URL'] ?? 'http://192.168.1.133:8000/api';
+    baseUrl = "$apiUrl";
+    mediaUrl = dotenv.env['MEDIA_URL'] ?? 'http://192.168.1.133:8000';
     _initPrefs();
   }
 
@@ -38,11 +43,11 @@ class _LostPetsScreenState extends State<LostPetsScreen> {
   }
 
   Future<void> fetchData() async {
-    const String postsUrl = "$baseUrl/api/posts/";
-    const String petsUrl =
-        "$baseUrl/api/filtered-pets/?status=0"; // Mascotas perdidas
-    const String imgsUrl = "$baseUrl/api/imgs-post/";
-    const String usersUrl = "$baseUrl/api/users/";
+    String postsUrl = "$baseUrl/posts/";
+    String petsUrl =
+        "$baseUrl/filtered-pets/?status=0"; // Mascotas perdidas
+    String imgsUrl = "$baseUrl/imgs-post/";
+    String usersUrl = "$baseUrl/users/";
 
     final SharedPreferences prefs = await SharedPreferences.getInstance();
     final String? token = prefs.getString('jwt_token');
@@ -143,9 +148,9 @@ class _LostPetsScreenState extends State<LostPetsScreen> {
       String details,
       String description,
       ) async {
-    const String petUrl = "$baseUrl/api/pets/";
-    const String postUrl = "$baseUrl/api/posts/";
-    const String imgUrl = "$baseUrl/api/imgs-post/";
+    String petUrl = "$baseUrl/pets/";
+    String postUrl = "$baseUrl/posts/";
+    String imgUrl = "$baseUrl/imgs-post/";
 
     // Recuperar el token JWT y el ID del usuario autenticado
     final SharedPreferences prefs = await SharedPreferences.getInstance();
@@ -478,7 +483,7 @@ class _LostPetsScreenState extends State<LostPetsScreen> {
                             itemCount: images.length,
                             itemBuilder: (context, imgIndex) {
                               final imageUrl =
-                                  "$baseUrl${images[imgIndex]['imgURL']}";
+                                  "$mediaUrl${images[imgIndex]['imgURL']}";
                               return Image.network(
                                 imageUrl,
                                 fit: BoxFit.cover,
@@ -555,14 +560,14 @@ class _LostPetsScreenState extends State<LostPetsScreen> {
                                     Navigator.push(
                                       context,
                                       MaterialPageRoute(
-                                        builder:
-                                            (context) => CommentScreen(
+                                        builder: (context) => CommentScreen(
                                           postId: post['id'],
                                         ),
                                       ),
                                     );
                                   },
                                 ),
+
                                 // En el botón de enviar mensaje, reemplazar el código actual con:
                                 TextButton.icon(
                                   icon: const Icon(

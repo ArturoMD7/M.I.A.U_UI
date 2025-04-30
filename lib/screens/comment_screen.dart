@@ -1,119 +1,151 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class CommentScreen extends StatefulWidget {
-  final int postId;
+  final int postId; // Recibe el ID del post
 
-  const CommentScreen({Key? key, required this.postId}) : super(key: key);
+  const CommentScreen({super.key, required this.postId});
 
   @override
   _CommentScreenState createState() => _CommentScreenState();
 }
 
+
+
 class _CommentScreenState extends State<CommentScreen> {
-  List<dynamic> comments = [];
-  TextEditingController commentController = TextEditingController();
-  bool isLoading = true;
   late SharedPreferences prefs;
+  late String apiUrl;
+  bool isLoading = true;
+  List<dynamic> comments = [];
+  String errorMessage = '';
+  TextEditingController commentController = TextEditingController();
 
   @override
   void initState() {
     super.initState();
-    _initPrefs();
+    _initializePrefs();
   }
 
-  Future<void> _initPrefs() async {
-    prefs = await SharedPreferences.getInstance();
-    fetchComments();
+  Future<void> _initializePrefs() async {
+    prefs = await SharedPreferences.getInstance(); // Inicializa SharedPreferences
+    apiUrl = dotenv.env['API_URL'] ?? "192.168.1.133:8000"; // URL de la API
+    _loadComments();
   }
 
-  Future<void> fetchComments() async {
-    final String? token = prefs.getString('jwt_token');
-    if (token == null) return;
+
+  // Cargar los comentarios del post
+  Future<void> _loadComments() async {
+    final token = prefs.getString('jwt_token');
+    if (token == null) {
+      setState(() {
+        isLoading = false;
+        errorMessage = "No estás autenticado. Inicia sesión primero.";
+      });
+      return;
+    }
 
     try {
       final response = await http.get(
-        Uri.parse(
-          'http://137.131.25.37:8000/api/posts/${widget.postId}/comments/',
-        ),
-        headers: {'Authorization': 'Bearer $token'},
+        Uri.parse('$apiUrl/comments/?postId=${widget.postId}'),
+        headers: {"Authorization": "Bearer $token"},
       );
 
       if (response.statusCode == 200) {
+        final List<dynamic> commentsData = jsonDecode(response.body);
         setState(() {
-          comments = jsonDecode(response.body);
+          comments = commentsData;
           isLoading = false;
+        });
+      } else {
+        setState(() {
+          isLoading = false;
+          errorMessage = "Error al cargar los comentarios";
         });
       }
     } catch (e) {
       setState(() {
         isLoading = false;
+        errorMessage = "Error de conexión: $e";
       });
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error al cargar comentarios: $e')),
-      );
     }
   }
 
-  Future<void> addComment() async {
-    if (commentController.text.isEmpty) return;
-
-    final String? token = prefs.getString('jwt_token');
-    if (token == null) return;
+  // Enviar un nuevo comentario
+  Future<void> _sendComment(String commentText) async {
+    final token = prefs.getString('jwt_token');
+    final userId = prefs.getInt('user_id');
+    if (token == null || userId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Debes iniciar sesión")),
+      );
+      return;
+    }
 
     try {
       final response = await http.post(
-        Uri.parse(
-          'http://137.131.25.37:8000/api/posts/${widget.postId}/comments/',
-        ),
+        Uri.parse('$apiUrl/comments/'),
         headers: {
-          'Authorization': 'Bearer $token',
-          'Content-Type': 'application/json',
+          "Content-Type": "application/json",
+          "Authorization": "Bearer $token",
         },
-        body: jsonEncode({'comment': commentController.text}),
+        body: jsonEncode({
+          "comment": commentText,
+          "postId": widget.postId,
+          "userId": userId,
+        }),
       );
 
       if (response.statusCode == 201) {
-        commentController.clear();
-        fetchComments();
+        _loadComments(); // Recargar los comentarios
+        commentController.clear(); // Limpiar el campo de texto
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("Error al enviar comentario")),
+        );
       }
     } catch (e) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Error al enviar comentario: $e')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("Error: $e")),
+      );
     }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Comentarios')),
+      appBar: AppBar(title: const Text("Comentarios")),
       body: Column(
         children: [
-          Expanded(
-            child:
-            isLoading
-                ? const Center(child: CircularProgressIndicator())
-                : ListView.builder(
-              itemCount: comments.length,
-              itemBuilder: (context, index) {
-                final comment = comments[index];
-                return ListTile(
-                  leading: CircleAvatar(
-                    backgroundImage: NetworkImage(
-                      comment['userId']['profilePhoto'] ?? '',
+          isLoading
+              ? const Center(child: CircularProgressIndicator())
+              : comments.isEmpty
+                  ? Center(
+                      child: Text(
+                        errorMessage.isEmpty
+                            ? "No hay comentarios aún"
+                            : errorMessage,
+                        style: const TextStyle(fontSize: 18),
+                      ),
+                    )
+                  : Expanded(
+                      child: ListView.builder(
+                        itemCount: comments.length,
+                        itemBuilder: (context, index) {
+                          final comment = comments[index];
+                          return ListTile(
+                            title: Text(comment['user'] != null && comment['user']['name'] != null
+                              ? comment['user']['name']
+                              : "Usuario desconocido"),
+
+
+                            subtitle: Text(comment['comment']),
+                          );
+                        },
+                      ),
                     ),
-                  ),
-                  title: Text(
-                    '${comment['userId']['name']} ${comment['userId']['first_name']}',
-                  ),
-                  subtitle: Text(comment['comment']),
-                );
-              },
-            ),
-          ),
           Padding(
             padding: const EdgeInsets.all(8.0),
             child: Row(
@@ -122,12 +154,19 @@ class _CommentScreenState extends State<CommentScreen> {
                   child: TextField(
                     controller: commentController,
                     decoration: const InputDecoration(
-                      hintText: 'Escribe un comentario...',
+                      hintText: "Escribe un comentario...",
                       border: OutlineInputBorder(),
                     ),
                   ),
                 ),
-                IconButton(icon: const Icon(Icons.send), onPressed: addComment),
+                IconButton(
+                  icon: const Icon(Icons.send),
+                  onPressed: () {
+                    if (commentController.text.isNotEmpty) {
+                      _sendComment(commentController.text);
+                    }
+                  },
+                ),
               ],
             ),
           ),

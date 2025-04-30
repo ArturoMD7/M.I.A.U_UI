@@ -3,7 +3,12 @@ import 'package:qr_flutter/qr_flutter.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'custom_app_bar.dart';
+import 'package:pdf/pdf.dart';
+import 'package:pdf/widgets.dart' as pw;
+import 'package:printing/printing.dart';
+
 
 class QRScreen extends StatefulWidget {
   const QRScreen({super.key});
@@ -15,12 +20,49 @@ class QRScreen extends StatefulWidget {
 class _QRScreenState extends State<QRScreen> {
   List<dynamic> myPets = [];
   bool isLoading = true;
+  late String baseUrl;
 
   @override
   void initState() {
     super.initState();
+    baseUrl = dotenv.env['API_URL'] ?? 'http://137.131.25.37:8000';
     fetchMyPets();
   }
+
+  void generateAndDownloadPDF(String qrData, Map<String, dynamic> pet) async {
+    final pdf = pw.Document();
+
+    pdf.addPage(
+      pw.Page(
+        build: (pw.Context context) {
+          return pw.Column(
+            crossAxisAlignment: pw.CrossAxisAlignment.start,
+            children: [
+              pw.Text("Datos del QR", style: pw.TextStyle(fontSize: 24)),
+              pw.SizedBox(height: 10),
+              pw.Text("Nombre: ${pet['name'] ?? 'Sin nombre'}"),
+              pw.Text("Raza: ${pet['breed'] ?? 'Sin raza'}"),
+              pw.Text("Datos QR: $qrData"),
+              pw.SizedBox(height: 20),
+              pw.Center(
+                child: pw.BarcodeWidget(
+                  barcode: pw.Barcode.qrCode(),
+                  data: qrData,
+                  width: 200,
+                  height: 200,
+                ),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+
+    await Printing.layoutPdf(
+      onLayout: (PdfPageFormat format) async => pdf.save(),
+    );
+  }
+
 
   Future<void> fetchMyPets() async {
     final prefs = await SharedPreferences.getInstance();
@@ -33,7 +75,7 @@ class _QRScreenState extends State<QRScreen> {
       return;
     }
 
-    const String petsUrl = "http://137.131.25.37:8000/api/pets/";
+    final String petsUrl = "$baseUrl/pets/";
 
     try {
       final response = await http.get(
@@ -65,7 +107,7 @@ class _QRScreenState extends State<QRScreen> {
 
     if (token == null) return;
 
-    const String generateQRUrl = "http://192.168.1.95:8000/api/generate-qr/";
+    final String generateQRUrl = "$baseUrl/generate-qr/";
 
     try {
       final response = await http.post(
@@ -77,7 +119,7 @@ class _QRScreenState extends State<QRScreen> {
       );
 
       if (response.statusCode == 201) {
-        fetchMyPets(); // Actualiza la lista de mascotas
+        fetchMyPets();
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('QR generado correctamente')),
         );
@@ -87,9 +129,9 @@ class _QRScreenState extends State<QRScreen> {
         );
       }
     } catch (e) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Error de conexión: $e')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error de conexión: $e')),
+      );
     }
   }
 
@@ -99,7 +141,7 @@ class _QRScreenState extends State<QRScreen> {
 
     if (token == null) return;
 
-    const String deleteQRUrl = "http://192.168.1.95:8000/api/qr/delete/";
+    final String deleteQRUrl = "$baseUrl/qr/delete/";
 
     try {
       final response = await http.delete(
@@ -108,7 +150,7 @@ class _QRScreenState extends State<QRScreen> {
       );
 
       if (response.statusCode == 200) {
-        fetchMyPets(); // Actualiza la lista de mascotas
+        fetchMyPets();
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('QR eliminado correctamente')),
         );
@@ -118,9 +160,9 @@ class _QRScreenState extends State<QRScreen> {
         );
       }
     } catch (e) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Error de conexión: $e')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error de conexión: $e')),
+      );
     }
   }
 
@@ -130,7 +172,19 @@ class _QRScreenState extends State<QRScreen> {
       builder: (BuildContext context) {
         return AlertDialog(
           title: const Text("Información del QR"),
-          content: SingleChildScrollView(child: Text(qrContent)),
+          content: SingleChildScrollView(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  "Esta información está codificada en el QR:",
+                  style: TextStyle(fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 10),
+                Text(qrContent),
+              ],
+            ),
+          ),
           actions: [
             TextButton(
               onPressed: () => Navigator.of(context).pop(),
@@ -160,106 +214,147 @@ class _QRScreenState extends State<QRScreen> {
             const SizedBox(height: 10),
             isLoading
                 ? const CircularProgressIndicator()
-                : Expanded(
-              child: ListView.builder(
-                itemCount: myPets.length,
-                itemBuilder: (context, index) {
-                  final pet = myPets[index];
-                  final petId = pet['id'];
-                  final hasQR = pet['qrId'] != null;
+                : myPets.isEmpty
+                    ? const Expanded(
+                        child: Center(
+                          child: Text("No tienes mascotas registradas"),
+                        ),
+                      )
+                    : Expanded(
+                        child: ListView.builder(
+                          itemCount: myPets.length,
+                          itemBuilder: (context, index) {
+                            final pet = myPets[index];
+                            final petId = pet['id'];
+                            final hasQR = pet['qrId'] != null;
+                            print("usuarios");
+                            final user = (pet['userId'] != null && pet['userId'] is Map) ? pet['userId'] : {};
+                            print(user);
 
-                  // Generar el contenido del QR
-                  final qrContent =
-                      "Nombre: ${pet['name']}\n"
-                      "Raza: ${pet['breed']}\n"
-                      "Color: ${pet['color']}\n"
-                      "Fecha de Nacimiento: ${pet['birthDate']}";
 
-                  return Card(
-                    elevation: 3,
-                    margin: const EdgeInsets.symmetric(vertical: 10),
-                    child: Padding(
-                      padding: const EdgeInsets.all(16.0),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            pet['name'] ?? "Sin nombre",
-                            style: const TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                          const SizedBox(height: 10),
-                          Text(
-                            "Raza: ${pet['breed'] ?? "Sin raza"}",
-                            style: const TextStyle(fontSize: 14),
-                          ),
-                          const SizedBox(height: 10),
-                          if (hasQR)
-                            Column(
-                              children: [
-                                QrImageView(
-                                  data:
-                                  qrContent, // QR ahora muestra la info
-                                  version: QrVersions.auto,
-                                  size: 150.0,
-                                ),
-                                const SizedBox(height: 10),
-                                Row(
-                                  mainAxisAlignment:
-                                  MainAxisAlignment.spaceEvenly,
+                            // Generar el contenido del QR con información completa
+                            final qrContent = """
+                                Nombre de la mascota: ${pet['name'] ?? 'No disponible'}
+                                Edad: ${pet['age'] ?? 'No disponible'}
+                                Raza: ${pet['breed'] ?? 'No disponible'}
+                                Tamaño: ${pet['size'] ?? 'No disponible'}
+                                Estado: ${_getStatusText(pet['statusAdoption'])}
+
+                                Dueño:
+                                - Nombre: ${user['name'] ?? 'No disponible'} ${user['first_name'] ?? ''}
+                                - Email: ${user['email'] ?? 'No disponible'}
+                                - Teléfono: ${user['phone_number'] ?? 'No disponible'}
+                                - Ubicación: ${user['neighborhood'] ?? ''}, ${user['city'] ?? ''}, ${user['state'] ?? ''}
+                            """;
+
+
+                            return Card(
+                              elevation: 3,
+                              margin: const EdgeInsets.symmetric(vertical: 10),
+                              child: Padding(
+                                padding: const EdgeInsets.all(16.0),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    ElevatedButton(
-                                      onPressed:
-                                          () => _showQRDetails(qrContent),
-                                      style: ElevatedButton.styleFrom(
-                                        backgroundColor: Colors.green,
-                                      ),
-                                      child: const Text(
-                                        "Ver Info",
-                                        style: TextStyle(
-                                          color: Colors.white,
-                                        ),
+                                    Text(
+                                      pet['name'] ?? "Sin nombre",
+                                      style: const TextStyle(
+                                        fontSize: 18,
+                                        fontWeight: FontWeight.bold,
                                       ),
                                     ),
-                                    ElevatedButton(
-                                      onPressed: () => deleteQR(petId),
-                                      style: ElevatedButton.styleFrom(
-                                        backgroundColor: Colors.red,
+                                    const SizedBox(height: 10),
+                                    Text(
+                                      "Estatus de adopcion: ${pet['statusAdoption'] ?? "No disponible"}",
+                                      style: const TextStyle(fontSize: 14),
+                                    ),
+                                    const SizedBox(height: 10),
+                                    Text(
+                                      "Dueño: ${user['name'] ?? 'No disponible'} ${user['first_name'] ?? ''}",
+                                      style: const TextStyle(fontSize: 14),
+                                    ),
+                                    const SizedBox(height: 10),
+                                    if (hasQR)
+                                      Column(
+                                        children: [
+                                          QrImageView(
+                                            data: qrContent,
+                                            version: QrVersions.auto,
+                                            size: 150.0,
+                                          ),
+                                          const SizedBox(height: 10),
+                                            ElevatedButton(
+                                              onPressed: () => generateAndDownloadPDF(qrContent, pet),
+                                              style: ElevatedButton.styleFrom(
+                                                backgroundColor: Colors.orange,
+                                              ),
+                                              child: const Text(
+                                                "Ver PDF",
+                                                style: TextStyle(color: Colors.white),
+                                              ),
+                                            ),
+                                          const SizedBox(height: 10),
+                                          Row(
+                                            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                                            children: [
+                                              ElevatedButton(
+                                                onPressed: () => _showQRDetails(qrContent),
+                                                style: ElevatedButton.styleFrom(
+                                                  backgroundColor: Colors.green,
+                                                ),
+                                                child: const Text(
+                                                  "Ver Info",
+                                                  style: TextStyle(color: Colors.white),
+                                                ),
+                                              ),
+                                              ElevatedButton(
+                                                onPressed: () => deleteQR(petId),
+                                                style: ElevatedButton.styleFrom(
+                                                  backgroundColor: Colors.red,
+                                                ),
+                                                child: const Text(
+                                                  "Eliminar QR",
+                                                  style: TextStyle(color: Colors.white),
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ],
                                       ),
-                                      child: const Text(
-                                        "Eliminar QR",
-                                        style: TextStyle(
-                                          color: Colors.white,
+                                    if (!hasQR)
+                                      ElevatedButton(
+                                        onPressed: () => generateQR(petId),
+                                        style: ElevatedButton.styleFrom(
+                                          backgroundColor: Colors.blue,
+                                        ),
+                                        child: const Text(
+                                          "Generar QR",
+                                          style: TextStyle(color: Colors.white),
                                         ),
                                       ),
-                                    ),
                                   ],
                                 ),
-                              ],
-                            ),
-                          if (!hasQR)
-                            ElevatedButton(
-                              onPressed: () => generateQR(petId),
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: Colors.blue,
                               ),
-                              child: const Text(
-                                "Generar QR",
-                                style: TextStyle(color: Colors.white),
-                              ),
-                            ),
-                        ],
+                            );
+                          },
+                        ),
                       ),
-                    ),
-                  );
-                },
-              ),
-            ),
           ],
         ),
       ),
     );
+  }
+
+  String _getStatusText(int? status) {
+    switch (status) {
+      case 0:
+        return 'Perdido';
+      case 1:
+        return 'En adopción';
+      case 2:
+        return 'Adoptado';
+      default:
+        return 'Estado desconocido';
+    }
   }
 }

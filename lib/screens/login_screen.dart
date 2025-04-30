@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
+import 'package:miauuic/screens/register_screen.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 
-const String loginUrl = "http://137.131.25.37:8000/api/users/login/";
+
 
 // Colores principales
 const Color primaryColor = Color(0xFFD68F5E);
@@ -32,7 +34,15 @@ class _LoginScreenState extends State<LoginScreen> {
   final _formKey = GlobalKey<FormState>();
   final TextEditingController emailController = TextEditingController();
   final TextEditingController passwordController = TextEditingController();
+  late final String apiUrl;
+  late final String loginUrl;
 
+  @override
+  void initState() {
+    super.initState();
+    apiUrl = dotenv.env['API_URL'] ?? 'http://192.168.1.133:8000/';
+    loginUrl = "$apiUrl/users/login/";
+  }
   bool isLoading = false;
 
   Future<void> loginUser() async {

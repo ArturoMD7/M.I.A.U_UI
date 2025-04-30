@@ -3,8 +3,7 @@ import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'chat_screen.dart';
-
-const String baseUrl = "http://137.131.25.37:8000";
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 class MessagesScreen extends StatefulWidget {
   final int? initialRecipientId;
@@ -25,12 +24,17 @@ class _MessagesScreenState extends State<MessagesScreen> {
   bool isLoading = true;
   bool isCreatingChat = false;
   late SharedPreferences prefs;
+    late final String apiUrl;
+  late final String baseUrl;
 
   @override
   void initState() {
     super.initState();
+    apiUrl = dotenv.env['API_URL'] ?? '192.168.1.133:8000/';
+    baseUrl = "$apiUrl";
     _initPrefs();
   }
+
 
   Future<void> _initPrefs() async {
     prefs = await SharedPreferences.getInstance();
@@ -62,7 +66,7 @@ class _MessagesScreenState extends State<MessagesScreen> {
 
     try {
       final response = await http.post(
-        Uri.parse('$baseUrl/api/chats/'),
+        Uri.parse('$baseUrl/chats/'),
         headers: {
           'Authorization': 'Bearer $token',
           'Content-Type': 'application/json',
@@ -111,7 +115,7 @@ class _MessagesScreenState extends State<MessagesScreen> {
 
     try {
       final response = await http.get(
-        Uri.parse('$baseUrl/api/chats/'),
+        Uri.parse('$baseUrl/chats/'),
         headers: {'Authorization': 'Bearer $token'},
       );
 

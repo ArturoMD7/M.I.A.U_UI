@@ -7,8 +7,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:intl/intl.dart';
 import 'custom_app_bar.dart';
 import 'messages_screen.dart';
-
-const String baseUrl = "http://137.131.25.37:8000";
+import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'comment_screen.dart';
 
 class AdoptScreen extends StatefulWidget {
   const AdoptScreen({super.key});
@@ -19,6 +19,7 @@ class AdoptScreen extends StatefulWidget {
 
 class _AdoptScreenState extends State<AdoptScreen> {
   List<dynamic> posts = [];
+  List<dynamic> allPosts = []; // Lista completa sin filtrar
   bool isLoading = true;
   String errorMessage = '';
 
@@ -27,18 +28,24 @@ class _AdoptScreenState extends State<AdoptScreen> {
   String? selectedBreed;
   File? selectedImage;
 
+  late final String apiUrl;
+  late final String baseUrl;
+  late final String mediaUrl;
+
   @override
   void initState() {
     super.initState();
+    apiUrl = dotenv.env['API_URL'] ?? '192.168.1.133:8000/';
+    baseUrl = "$apiUrl";
+    mediaUrl = dotenv.env['MEDIA_URL'] ?? 'http://192.168.1.133:8000';
     fetchData();
   }
 
   Future<void> fetchData() async {
-    const String postsUrl = "$baseUrl/api/posts/";
-    const String petsUrl =
-        "$baseUrl/api/filtered-pets/?status=2"; // Mascotas en adopción
-    const String imgsUrl = "$baseUrl/api/imgs-post/";
-    const String usersUrl = "$baseUrl/api/users/";
+    String postsUrl = "$baseUrl/posts/";
+    String petsUrl = "$baseUrl/filtered-pets/?status=2"; // Mascotas en adopción
+    String imgsUrl = "$baseUrl/imgs-post/";
+    String usersUrl = "$baseUrl/users/";
 
     final SharedPreferences prefs = await SharedPreferences.getInstance();
     final String? token = prefs.getString('jwt_token');
@@ -81,27 +88,17 @@ class _AdoptScreenState extends State<AdoptScreen> {
         final List<dynamic> imgsData = jsonDecode(imgsResponse.body);
         final List<dynamic> usersData = jsonDecode(usersResponse.body);
 
-        // Filtrar solo mascotas en adopción (statusAdoption = 2)
-        final filteredPosts =
-        postsData
-            .where((post) {
+        // Procesar todos los posts
+        final processedPosts = postsData.map((post) {
           final petId = post['petId'];
           final pet = petsData.firstWhere(
-                (pet) => pet['id'] == petId && pet['statusAdoption'] == 2,
+            (pet) => pet['id'] == petId,
             orElse: () => null,
           );
-          return pet != null;
-        })
-            .map((post) {
-          final petId = post['petId'];
-          final pet = petsData.firstWhere((pet) => pet['id'] == petId);
-          final postImages =
-          imgsData
-              .where((img) => img['idPost'] == post['id'])
-              .toList();
+          final postImages = imgsData.where((img) => img['idPost'] == post['id']).toList();
           final userId = post['userId'];
           final user = usersData.firstWhere(
-                (user) => user['id'] == userId,
+            (user) => user['id'] == userId,
             orElse: () => null,
           );
           return {
@@ -110,11 +107,11 @@ class _AdoptScreenState extends State<AdoptScreen> {
             'images': postImages,
             'user': user,
           };
-        })
-            .toList();
+        }).toList();
 
         setState(() {
-          posts = filteredPosts;
+          allPosts = processedPosts.where((post) => post['pet'] != null).toList();
+          posts = applyFilters(allPosts);
           isLoading = false;
         });
       } else {
@@ -131,6 +128,56 @@ class _AdoptScreenState extends State<AdoptScreen> {
     }
   }
 
+  List<dynamic> applyFilters(List<dynamic> postsToFilter) {
+    return postsToFilter.where((post) {
+      final pet = post['pet'];
+      
+      // Filtro por tamaño
+      if (selectedSize != null && pet['size'] != selectedSize) {
+        return false;
+      }
+      
+      // Filtro por raza
+      if (selectedBreed != null && !pet['breed'].toLowerCase().contains(selectedBreed!.toLowerCase())) {
+        return false;
+      }
+      
+      // Filtro por edad
+      if (selectedAge != null) {
+        final ageStr = pet['age'].toLowerCase();
+        int? age;
+        
+        // Intentar extraer el número de la cadena de edad
+        try {
+          age = int.tryParse(ageStr.replaceAll(RegExp(r'[^0-9]'), ''));
+        } catch (e) {
+          age = null;
+        }
+        
+        if (age != null) {
+          if (selectedAge == 'Cachorro' && (age < 0 || age > 1)) {
+            return false;
+          } else if (selectedAge == 'Joven' && (age < 2 || age > 6)) {
+            return false;
+          } else if (selectedAge == 'Adulto' && age <= 6) {
+            return false;
+          }
+        } else {
+          // Si no podemos extraer un número, hacer coincidencia aproximada
+          if (selectedAge == 'Cachorro' && !ageStr.contains('cachorro') && !ageStr.contains('bebé')) {
+            return false;
+          } else if (selectedAge == 'Joven' && !ageStr.contains('joven')) {
+            return false;
+          } else if (selectedAge == 'Adulto' && !ageStr.contains('adulto')) {
+            return false;
+          }
+        }
+      }
+      
+      return true;
+    }).toList();
+  }
+  
   Future<void> publishPet(
       String name,
       String age,
@@ -139,9 +186,9 @@ class _AdoptScreenState extends State<AdoptScreen> {
       String details,
       String description,
       ) async {
-    const String petUrl = "$baseUrl/api/pets/";
-    const String postUrl = "$baseUrl/api/posts/";
-    const String imgUrl = "$baseUrl/api/imgs-post/";
+    String petUrl = "$baseUrl/pets/";
+    String postUrl = "$baseUrl/posts/";
+    String imgUrl = "$baseUrl/imgs-post/";
 
     // Recuperar el token JWT y el userId
     final SharedPreferences prefs = await SharedPreferences.getInstance();
@@ -411,8 +458,7 @@ class _AdoptScreenState extends State<AdoptScreen> {
                 DropdownButton<String>(
                   hint: const Text("Tamaño"),
                   value: selectedSize,
-                  items:
-                  ["Pequeño", "Mediano", "Grande"].map((String value) {
+                  items: ["Pequeño", "Mediano", "Grande"].map((String value) {
                     return DropdownMenuItem<String>(
                       value: value,
                       child: Text(value),
@@ -421,32 +467,30 @@ class _AdoptScreenState extends State<AdoptScreen> {
                   onChanged: (newValue) {
                     setState(() {
                       selectedSize = newValue;
+                      posts = applyFilters(allPosts);
                     });
                   },
                 ),
                 DropdownButton<String>(
                   hint: const Text("Edad"),
                   value: selectedAge,
-                  items:
-                  ["Cachorro", "Joven", "Adulto"].map((String value) {
+                  items: ["Cachorro (0-1)", "Joven (2-6)", "Adulto (+6)"].map((String value) {
                     return DropdownMenuItem<String>(
-                      value: value,
+                      value: value.split(' ')[0], // Guarda solo "Cachorro", "Joven", etc.
                       child: Text(value),
                     );
                   }).toList(),
                   onChanged: (newValue) {
                     setState(() {
                       selectedAge = newValue;
+                      posts = applyFilters(allPosts);
                     });
                   },
                 ),
                 DropdownButton<String>(
                   hint: const Text("Raza"),
                   value: selectedBreed,
-                  items:
-                  ["Labrador", "Siamés", "Golden Retriever"].map((
-                      String value,
-                      ) {
+                  items: ["Labrador", "Siamés", "Golden Retriever", "Persa", "Mestizo"].map((String value) {
                     return DropdownMenuItem<String>(
                       value: value,
                       child: Text(value),
@@ -455,44 +499,51 @@ class _AdoptScreenState extends State<AdoptScreen> {
                   onChanged: (newValue) {
                     setState(() {
                       selectedBreed = newValue;
+                      posts = applyFilters(allPosts);
                     });
                   },
                 ),
                 ElevatedButton(
-                  onPressed: fetchData, // Actualizar la lista
-                  child: const Text("Aplicar filtros"),
+                  onPressed: () {
+                    setState(() {
+                      selectedSize = null;
+                      selectedAge = null;
+                      selectedBreed = null;
+                      posts = applyFilters(allPosts);
+                    });
+                  },
+                  child: const Text("Limpiar filtros"),
                 ),
               ],
             ),
           ),
           Expanded(
-            child:
-            isLoading
+            child: isLoading
                 ? const Center(child: CircularProgressIndicator())
                 : posts.isEmpty
-                ? Center(
-              child: Text(
-                errorMessage.isEmpty
-                    ? "No hay mascotas en adopción disponibles"
-                    : errorMessage,
-                style: const TextStyle(fontSize: 18),
-              ),
-            )
-                : ListView.builder(
-              padding: const EdgeInsets.all(10),
-              itemCount: posts.length,
-              itemBuilder: (context, index) {
-                final post = posts[index];
-                final pet = post['pet'];
-                final images = post['images'] as List<dynamic>;
-                final user = post['user'];
+                    ? Center(
+                        child: Text(
+                          errorMessage.isEmpty
+                              ? "No hay mascotas que coincidan con los filtros"
+                              : errorMessage,
+                          style: const TextStyle(fontSize: 18),
+                        ),
+                      )
+                    : ListView.builder(
+                        padding: const EdgeInsets.all(10),
+                        itemCount: posts.length,
+                        itemBuilder: (context, index) {
+                          final post = posts[index];
+                          final pet = post['pet'];
+                          final images = post['images'] as List<dynamic>;
+                          final user = post['user'];
 
-                return Card(
-                  elevation: 3,
-                  margin: const EdgeInsets.symmetric(vertical: 10),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
+                          return Card(
+                            elevation: 3,
+                            margin: const EdgeInsets.symmetric(vertical: 10),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
                       // Mostrar el nombre y la foto del usuario
                       Padding(
                         padding: const EdgeInsets.all(10),
@@ -533,7 +584,7 @@ class _AdoptScreenState extends State<AdoptScreen> {
                             itemCount: images.length,
                             itemBuilder: (context, imgIndex) {
                               final imageUrl =
-                                  "$baseUrl${images[imgIndex]['imgURL']}";
+                                  "$mediaUrl${images[imgIndex]['imgURL']}";
                               return Image.network(
                                 imageUrl,
                                 fit: BoxFit.cover,
@@ -602,7 +653,16 @@ class _AdoptScreenState extends State<AdoptScreen> {
                                     color: Colors.blue,
                                   ),
                                   label: const Text("Comentar"),
-                                  onPressed: () {},
+                                  onPressed: () {
+                                    Navigator.push(
+                                      context,
+                                      MaterialPageRoute(
+                                        builder: (context) => CommentScreen(
+                                          postId: post['id'],
+                                        ),
+                                      ),
+                                    );
+                                  },
                                 ),
                                 // En el botón de enviar mensaje, reemplazar el código actual con:
                                 TextButton.icon(
@@ -657,6 +717,7 @@ class _AdoptScreenState extends State<AdoptScreen> {
                       ),
                     ],
                   ),
+                  
                 );
               },
             ),
