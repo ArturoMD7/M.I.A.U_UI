@@ -1,9 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-
-const String baseUrl = "http://137.131.25.37:8000/api/chats";
 
 class ChatScreen extends StatefulWidget {
   final int chatId;
@@ -27,16 +26,20 @@ class _ChatScreenState extends State<ChatScreen> {
   late SharedPreferences prefs;
   final ScrollController _scrollController = ScrollController();
 
+  late final String apiUrl;
+  late final String baseUrl;
+
   @override
   void initState() {
     super.initState();
+    apiUrl = dotenv.env['API_URL'] ?? '192.168.1.133:8000/';
+    baseUrl = "$apiUrl/chats";
     _initPrefs();
   }
 
   Future<void> _initPrefs() async {
     prefs = await SharedPreferences.getInstance();
     await fetchMessages();
-    _scrollToBottom();
   }
 
   Future<void> fetchMessages() async {
@@ -54,6 +57,7 @@ class _ChatScreenState extends State<ChatScreen> {
           messages = jsonDecode(response.body);
           isLoading = false;
         });
+        _scrollToBottom(); // Desplazar hacia abajo al cargar los mensajes
       }
     } catch (e) {
       _showError('Error al cargar mensajes');
@@ -106,7 +110,7 @@ class _ChatScreenState extends State<ChatScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (_scrollController.hasClients) {
         _scrollController.animateTo(
-          0,
+          _scrollController.position.maxScrollExtent,
           duration: const Duration(milliseconds: 300),
           curve: Curves.easeOut,
         );
@@ -127,24 +131,21 @@ class _ChatScreenState extends State<ChatScreen> {
       body: Column(
         children: [
           Expanded(
-            child:
-            isLoading
+            child: isLoading
                 ? const Center(child: CircularProgressIndicator())
                 : ListView.builder(
-              controller: _scrollController,
-              reverse: true,
-              itemCount: messages.length,
-              itemBuilder: (context, index) {
-                final message = messages[index];
-                final isMe =
-                    message['sender']['id'] == prefs.getInt('user_id');
-                return MessageBubble(
-                  message: message['content'],
-                  isMe: isMe,
-                  timestamp: message['timestamp'],
-                );
-              },
-            ),
+                    controller: _scrollController,
+                    itemCount: messages.length,
+                    itemBuilder: (context, index) {
+                      final message = messages[index];
+                      final isMe = message['sender']['id'] == prefs.getInt('user_id');
+                      return MessageBubble(
+                        message: message['content'],
+                        isMe: isMe,
+                        timestamp: message['timestamp'],
+                      );
+                    },
+                  ),
           ),
           Padding(
             padding: const EdgeInsets.all(8.0),

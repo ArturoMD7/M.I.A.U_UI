@@ -4,17 +4,17 @@ import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'dart:io';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:intl/intl.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 
-class AddPetScreen extends StatefulWidget {
-  final Map<String, dynamic>? petToEdit;
-  const AddPetScreen({super.key, this.petToEdit});
+class CreatePetScreen extends StatefulWidget {
+  const CreatePetScreen({super.key});
 
   @override
-  _AddPetScreenState createState() => _AddPetScreenState();
+  _CreatePetScreenState createState() => _CreatePetScreenState();
 }
 
-class _AddPetScreenState extends State<AddPetScreen> {
+class _CreatePetScreenState extends State<CreatePetScreen> {
   final _formKey = GlobalKey<FormState>();
   final TextEditingController _nameController = TextEditingController();
   final TextEditingController _ageController = TextEditingController();
@@ -37,42 +37,15 @@ class _AddPetScreenState extends State<AddPetScreen> {
   void initState() {
     super.initState();
     _baseUrl = dotenv.env['API_URL'] ?? 'http://192.168.1.133:8000/api';
-    
-    // Si estamos editando, cargamos los datos existentes
-    if (widget.petToEdit != null) {
-      _nameController.text = widget.petToEdit!['name'] ?? '';
-      _ageController.text = widget.petToEdit!['age'] ?? '';
-      _breedController.text = widget.petToEdit!['breed'] ?? '';
-      _selectedSize = widget.petToEdit!['size'];
-      _detailsController.text = widget.petToEdit!['petDetails'] ?? '';
-      _selectedStatus = widget.petToEdit!['statusAdoption'];
-    } else {
-      _selectedStatus = 2; // Default: Buscando familia
-    }
-  }
-
-  Future<String?> _getToken() async {
-    final prefs = await SharedPreferences.getInstance();
-    return prefs.getString('jwt_token');
-  }
-
-  Future<int?> _getUserId() async {
-    final prefs = await SharedPreferences.getInstance();
-    return prefs.getInt('user_id');
-  }
-
-  Future<void> _pickImage() async {
-    final image = await ImagePicker().pickImage(source: ImageSource.gallery);
-    if (image != null) {
-      setState(() => _selectedImage = File(image.path));
-    }
+    _selectedStatus = 2; // Default: Buscando familia
   }
 
   Future<void> _submitForm() async {
     if (!_formKey.currentState!.validate()) return;
 
-    final token = await _getToken();
-    final userId = await _getUserId();
+    final prefs = await SharedPreferences.getInstance();
+    final token = prefs.getString('jwt_token');
+    final userId = prefs.getInt('user_id');
 
     if (token == null || userId == null) {
       if (!mounted) return;
@@ -85,6 +58,7 @@ class _AddPetScreenState extends State<AddPetScreen> {
     setState(() => _isLoading = true);
 
     try {
+      // Crear la mascota según tu modelo Django
       final petData = {
         "name": _nameController.text,
         "age": _ageController.text,
@@ -95,41 +69,24 @@ class _AddPetScreenState extends State<AddPetScreen> {
         "statusAdoption": _selectedStatus,
       };
 
-      // Determinar si es creación o edición
-      final isEditing = widget.petToEdit != null;
-      final url = isEditing 
-          ? "$_baseUrl/pets/${widget.petToEdit!['id']}/" 
-          : "$_baseUrl/pets/";
+      // 1. Crear la mascota
+      final petResponse = await http.post(
+        Uri.parse("$_baseUrl/pets/"),
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": "Bearer $token",
+        },
+        body: jsonEncode(petData),
+      );
 
-      final response = isEditing
-          ? await http.put(
-              Uri.parse(url),
-              headers: {
-                "Content-Type": "application/json",
-                "Authorization": "Bearer $token",
-              },
-              body: jsonEncode(petData),
-            )
-          : await http.post(
-              Uri.parse(url),
-              headers: {
-                "Content-Type": "application/json",
-                "Authorization": "Bearer $token",
-              },
-              body: jsonEncode(petData),
-            );
-
-      if ((isEditing && response.statusCode != 200) || 
-          (!isEditing && response.statusCode != 201)) {
-        throw Exception("Error: ${response.body}");
+      if (petResponse.statusCode != 201) {
+        throw Exception("Error al crear mascota: ${petResponse.body}");
       }
 
-      // Subir imagen si existe
-      if (_selectedImage != null) {
-        final petId = isEditing 
-            ? widget.petToEdit!['id'] 
-            : jsonDecode(response.body)['id'];
+      final petId = jsonDecode(petResponse.body)['id'];
 
+      // 2. Subir imagen si existe
+      if (_selectedImage != null) {
         final request = http.MultipartRequest(
           "POST", 
           Uri.parse("$_baseUrl/pet-images/")
@@ -141,19 +98,15 @@ class _AddPetScreenState extends State<AddPetScreen> {
             _selectedImage!.path,
           ));
 
-        final imgResponse = await request.send();
-        if (imgResponse.statusCode != 201) {
+        final response = await request.send();
+        if (response.statusCode != 201) {
           throw Exception("Error al subir imagen");
         }
       }
 
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(isEditing 
-              ? "Mascota actualizada exitosamente" 
-              : "Mascota creada exitosamente"),
-        ),
+        const SnackBar(content: Text("Mascota creada exitosamente")),
       );
       Navigator.pop(context, true);
     } catch (e) {
@@ -166,12 +119,17 @@ class _AddPetScreenState extends State<AddPetScreen> {
     }
   }
 
+  Future<void> _pickImage() async {
+    final image = await ImagePicker().pickImage(source: ImageSource.gallery);
+    if (image != null) {
+      setState(() => _selectedImage = File(image.path));
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: Text(widget.petToEdit != null ? "Editar Mascota" : "Agregar Mascota"),
-      ),
+      appBar: AppBar(title: const Text("Crear nueva mascota")),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Form(
@@ -218,7 +176,7 @@ class _AddPetScreenState extends State<AddPetScreen> {
                 // Selector de Tamaño
                 DropdownButtonFormField<String>(
                   value: _selectedSize,
-                  decoration: const InputDecoration(labelText: "Tamaño*"),
+                  hint: const Text("Tamaño*"),
                   items: _sizeOptions.map((String value) {
                     return DropdownMenuItem<String>(
                       value: value,

@@ -3,10 +3,12 @@ import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'dart:io';
 import 'package:image_picker/image_picker.dart';
+import 'package:miauuic/screens/register_screen.dart';
 import 'package:provider/provider.dart';
 import '../services/theme_provider.dart';
 import 'custom_app_bar.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 Future<void> saveToken(String token) async {
   final prefs = await SharedPreferences.getInstance();
@@ -25,7 +27,6 @@ Future<String?> getToken() async {
 
 const Color primaryColor = Color(0xFFD0894B);
 const Color darkPrimaryColor = Color(0xFF8B5A2B);
-const String baseUrl = "http://137.131.25.37:8000";
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -39,11 +40,18 @@ class _ProfileScreenState extends State<ProfileScreen> {
   final ImagePicker _picker = ImagePicker();
   String? _profilePhotoUrl;
 
+  late final String apiUrl;
+  late final String baseUrl;
+
   @override
   void initState() {
     super.initState();
+    apiUrl = dotenv.env['API_URL'] ?? '192.168.1.133:8000/';
+    baseUrl = apiUrl;
     _loadProfilePhotoUrl();
   }
+
+  
 
   Widget _buildThemeSwitch(BuildContext context) {
     final themeProvider = Provider.of<ThemeProvider>(context);
@@ -168,7 +176,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     final prefs = await SharedPreferences.getInstance();
     final String? userId = prefs.getString('userId');
     final String? imageUrl = prefs.getString('profilePhotoUrl_$userId');
-
+    final String baseUrl = dotenv.env['API_URL'] ?? '192.168.1.133:8000/';
     if (imageUrl != null) {
       if (!imageUrl.startsWith(baseUrl)) {
         final String absoluteImageUrl = '$baseUrl$imageUrl';
@@ -197,7 +205,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   Future<void> _uploadImage() async {
     if (_image == null) return;
 
-    final url = Uri.parse('$baseUrl/api/users-profile/');
+    final url = Uri.parse('$baseUrl/users-profile/');
     final token = await getToken();
 
     var request = http.MultipartRequest('POST', url)
@@ -242,37 +250,45 @@ class _ProfileScreenState extends State<ProfileScreen> {
     }
   }
 
+
   Future<void> logout(BuildContext context) async {
-    const String logoutUrl = "$baseUrl/api/users/logout/";
+    final prefs = await SharedPreferences.getInstance();
+    final token = prefs.getString('jwt_token');
+    final refreshToken = prefs.getString('refresh_token');
+    final String? userId = prefs.getString('userId');
 
     try {
-      final token = await getToken();
-      if (token == null) return;
+      if (token != null && refreshToken != null) {
+        final response = await http.post(
+          Uri.parse('$baseUrl/users/logout/'),
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer $token',
+          },
+          body: jsonEncode({'refresh': refreshToken}),
+        );
 
-      final response = await http.post(
-        Uri.parse(logoutUrl),
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer $token',
-        },
-      );
-
-      if (response.statusCode == 200) {
-        final prefs = await SharedPreferences.getInstance();
-        final String? userId = prefs.getString('userId');
-        await prefs.remove('profilePhotoUrl_$userId');
-        await removeToken();
-        Navigator.pushReplacementNamed(context, '/');
+        // Puedes imprimir para debug
+        print('Logout response: ${response.body}');
       }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error de conexión: $e')),
-      );
+      print('Error al cerrar sesión: $e');
     }
+
+    // Eliminar datos del usuario
+    await prefs.remove('jwt_token');
+    await prefs.remove('refresh_token');
+    await prefs.remove('userId');
+    await prefs.remove('profilePhotoUrl_$userId');
+
+    if (!context.mounted) return;
+    Navigator.pushNamedAndRemoveUntil(context, '/', (route) => false);
   }
 
   Future<void> deleteAccount(BuildContext context) async {
-    const String deleteUrl = "$baseUrl/api/users/delete/1/";
+    final prefs = await SharedPreferences.getInstance();
+    final userId = prefs.getString('userId');
+    String deleteUrl = "$baseUrl/users/delete/$userId/";
 
     try {
       final token = await getToken();
@@ -295,7 +311,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   Future<Map<String, dynamic>> fetchUserInfo(BuildContext context) async {
-    const String userInfoUrl = "$baseUrl/api/users/me/";
+    String userInfoUrl = "$baseUrl/users/me/";
 
     try {
       final token = await getToken();
@@ -411,7 +427,30 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   _buildButton(
                     context: context,
                     text: "Cerrar Sesión",
-                    onPressed: () => logout(context),
+                    onPressed: () {
+                      showDialog(
+                        context: context,
+                        builder: (context) => AlertDialog(
+                          title: const Text("Cerrar sesión"),
+                          content: const Text("¿Estás seguro que deseas cerrar sesión?"),
+                          actions: [
+                            TextButton(
+                              onPressed: () => Navigator.pop(context),
+                              child: const Text("Cancelar"),
+                            ),
+                            TextButton(
+                              onPressed: () {
+                                Navigator.pop(context);
+                                logout(context);
+                              },
+                              child: const Text("Cerrar sesión"),
+                              
+                            ),
+                          ],
+                        ),
+                      );
+                    },
+
                     backgroundColor: primaryColor,
                     textColor: Colors.black,
                   ),
@@ -484,7 +523,8 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   }
 
   Future<void> _updateUserInfo() async {
-    final String updateUrl = "$baseUrl/api/users/update/${widget.userInfo['id']}/";
+    final String baseUrl = dotenv.env['API_URL'] ?? '192.168.1.133:8000/';
+    String updateUrl = "$baseUrl/users/update/${widget.userInfo['id']}/";
 
     final Map<String, dynamic> updatedData = {
       'name': _nameController.text,

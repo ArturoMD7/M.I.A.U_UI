@@ -1,19 +1,21 @@
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:http/http.dart' as http;
+import 'package:miauuic/screens/add_pet_screen.dart';
 import 'dart:convert';
 import 'dart:io';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:intl/intl.dart';
+import 'package:provider/provider.dart';
 import 'custom_app_bar.dart';
-import 'chat_screen.dart';
-import 'comment_screen.dart';
 import 'messages_screen.dart';
-
-const String baseUrl = "http://137.131.25.37:8000";
+import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'comment_screen.dart';
+import 'create_pet_screen.dart';
 
 class LostPetsScreen extends StatefulWidget {
-  const LostPetsScreen({super.key});
+  final int? initialPostId;
+  const LostPetsScreen({super.key, this.initialPostId});
 
   @override
   _LostPetsScreenState createState() => _LostPetsScreenState();
@@ -24,55 +26,62 @@ class _LostPetsScreenState extends State<LostPetsScreen> {
   bool isLoading = true;
   String errorMessage = '';
   File? selectedImage;
-  late SharedPreferences prefs;
+  late final String apiUrl;
+  late final String baseUrl;
+  late final String mediaUrl;
+  final ScrollController _scrollController = ScrollController();
 
   @override
   void initState() {
     super.initState();
-    _initPrefs();
-  }
-
-  Future<void> _initPrefs() async {
-    prefs = await SharedPreferences.getInstance();
+    apiUrl = dotenv.env['API_URL'] ?? 'http://192.168.1.133:8000/api';
+    baseUrl = apiUrl;
+    mediaUrl = dotenv.env['MEDIA_URL'] ?? 'http://192.168.1.133:8000';
     fetchData();
   }
 
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
+
   Future<void> fetchData() async {
-    const String postsUrl = "$baseUrl/api/posts/";
-    const String petsUrl =
-        "$baseUrl/api/filtered-pets/?status=0"; // Mascotas perdidas
-    const String imgsUrl = "$baseUrl/api/imgs-post/";
-    const String usersUrl = "$baseUrl/api/users/";
-
-    final SharedPreferences prefs = await SharedPreferences.getInstance();
-    final String? token = prefs.getString('jwt_token');
-
-    if (token == null) {
-      setState(() {
-        isLoading = false;
-        errorMessage = "No estás autenticado. Inicia sesión primero.";
-      });
-      return;
-    }
+    setState(() {
+      isLoading = true;
+      errorMessage = '';
+    });
 
     try {
-      final postsResponse = await http.get(
-        Uri.parse(postsUrl),
+      final SharedPreferences prefs = await SharedPreferences.getInstance();
+      final String? token = prefs.getString('jwt_token');
+
+      if (token == null) {
+        setState(() {
+          isLoading = false;
+          errorMessage = "No estás autenticado. Inicia sesión primero.";
+        });
+        return;
+      }
+
+      // Obtener solo mascotas con statusAdoption = 0 (perdidas)
+      final petsResponse = await http.get(
+        Uri.parse("$baseUrl/filtered-pets/?status=0"),
         headers: {"Authorization": "Bearer $token"},
       );
 
-      final petsResponse = await http.get(
-        Uri.parse(petsUrl),
+      final postsResponse = await http.get(
+        Uri.parse("$baseUrl/posts/"),
         headers: {"Authorization": "Bearer $token"},
       );
 
       final imgsResponse = await http.get(
-        Uri.parse(imgsUrl),
+        Uri.parse("$baseUrl/imgs-post/"),
         headers: {"Authorization": "Bearer $token"},
       );
 
       final usersResponse = await http.get(
-        Uri.parse(usersUrl),
+        Uri.parse("$baseUrl/users/"),
         headers: {"Authorization": "Bearer $token"},
       );
 
@@ -85,27 +94,16 @@ class _LostPetsScreenState extends State<LostPetsScreen> {
         final List<dynamic> imgsData = jsonDecode(imgsResponse.body);
         final List<dynamic> usersData = jsonDecode(usersResponse.body);
 
-        // Filtrar solo mascotas perdidas (statusAdoption = 0)
-        final filteredPosts =
-        postsData
-            .where((post) {
+        final processedPosts = postsData.map((post) {
           final petId = post['petId'];
           final pet = petsData.firstWhere(
-                (pet) => pet['id'] == petId && pet['statusAdoption'] == 0,
+            (pet) => pet['id'] == petId,
             orElse: () => null,
           );
-          return pet != null;
-        })
-            .map((post) {
-          final petId = post['petId'];
-          final pet = petsData.firstWhere((pet) => pet['id'] == petId);
-          final postImages =
-          imgsData
-              .where((img) => img['idPost'] == post['id'])
-              .toList();
+          final postImages = imgsData.where((img) => img['idPost'] == post['id']).toList();
           final userId = post['userId'];
           final user = usersData.firstWhere(
-                (user) => user['id'] == userId,
+            (user) => user['id'] == userId,
             orElse: () => null,
           );
           return {
@@ -114,291 +112,738 @@ class _LostPetsScreenState extends State<LostPetsScreen> {
             'images': postImages,
             'user': user,
           };
-        })
-            .toList();
+        }).where((post) => post['pet'] != null).toList();
 
         setState(() {
-          posts = filteredPosts;
+          posts = processedPosts;
           isLoading = false;
         });
+
+        if (widget.initialPostId != null) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            final index = posts.indexWhere((post) => post['id'] == widget.initialPostId);
+            if (index != -1 && _scrollController.hasClients) {
+              _scrollController.animateTo(
+                index * 400.0,
+                duration: const Duration(milliseconds: 500),
+                curve: Curves.easeInOut,
+              );
+            }
+          });
+        }
       } else {
-        setState(() {
-          isLoading = false;
-          errorMessage = "Error al cargar los datos";
-        });
+        throw Exception("Error al cargar los datos");
       }
     } catch (e) {
       setState(() {
         isLoading = false;
-        errorMessage = "Error de conexión: $e";
+        errorMessage = "Error de conexión: ${e.toString()}";
       });
     }
   }
 
-  Future<void> reportLostPet(
-      String name,
-      String age,
-      String breed,
-      String size,
-      String details,
-      String description,
-      ) async {
-    const String petUrl = "$baseUrl/api/pets/";
-    const String postUrl = "$baseUrl/api/posts/";
-    const String imgUrl = "$baseUrl/api/imgs-post/";
-
-    // Recuperar el token JWT y el ID del usuario autenticado
+  Future<void> _deletePost(int postId) async {
     final SharedPreferences prefs = await SharedPreferences.getInstance();
     final String? token = prefs.getString('jwt_token');
-    final int? userId = prefs.getInt('user_id'); // Recuperar el userId
 
-    if (token == null || userId == null) {
+    if (token == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("No estás autenticado. Inicia sesión primero.")),
+        const SnackBar(content: Text("Debes iniciar sesión")),
       );
       return;
     }
 
     setState(() {
-      isLoading = true; // Activar indicador de carga
+      isLoading = true;
     });
 
     try {
-      // Crear la mascota perdida
-      final petResponse = await http.post(
-        Uri.parse(petUrl),
+      final response = await http.delete(
+        Uri.parse("$baseUrl/posts/$postId/"),
+        headers: {"Authorization": "Bearer $token"},
+      );
+
+      if (response.statusCode == 204) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Publicación eliminada")),
+        );
+        await fetchData();
+      } else {
+        throw Exception("Error al eliminar: ${response.body}");
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("Error: ${e.toString()}")),
+      );
+    } finally {
+      setState(() {
+        isLoading = false;
+      });
+    }
+  }
+
+  Future<void> _createLostPetPost() async {
+    final SharedPreferences prefs = await SharedPreferences.getInstance();
+    final String? token = prefs.getString('jwt_token');
+    final int? userId = prefs.getInt('user_id');
+
+    if (token == null || userId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Debes iniciar sesión")),
+      );
+      return;
+    }
+
+    try {
+      final response = await http.get(
+        Uri.parse("$baseUrl/pets/user/$userId/"),
+        headers: {"Authorization": "Bearer $token"},
+      );
+
+      if (response.statusCode == 200) {
+        final List<dynamic> userPets = jsonDecode(response.body)
+            .where((pet) => pet['statusAdoption'] == 0 || pet['statusAdoption'] == 2)
+            .toList();
+
+        if (userPets.isEmpty) {
+          await showDialog(
+            context: context,
+            builder: (context) => AlertDialog(
+              title: const Text("No tienes mascotas registradas"),
+              content: const Text("Registra una mascota primero para poder reportarla como perdida"),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text("OK"),
+                ),
+                TextButton(
+                  onPressed: () {
+                    Navigator.pop(context);
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (context) => const AddPetScreen()),
+                    ).then((_) => fetchData());
+                  },
+                  child: const Text("Crear mascota"),
+                ),
+              ],
+            ),
+          );
+          return;
+        }
+
+        String? selectedPetId;
+        final descriptionController = TextEditingController();
+
+        await showDialog(
+          context: context,
+          builder: (context) {
+            return StatefulBuilder(
+              builder: (context, setState) {
+                return AlertDialog(
+                  title: const Text("Reportar mascota perdida"),
+                  content: SingleChildScrollView(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        DropdownButtonFormField<String>(
+                          value: selectedPetId,
+                          hint: const Text("Selecciona una mascota"),
+                          items: userPets.map((pet) {
+                            return DropdownMenuItem<String>(
+                              value: pet['id'].toString(),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text("${pet['name']} (${pet['breed']})"),
+                                  Text(
+                                    "Estado: ${pet['statusAdoption'] == 0 ? 'Perdida' : 'En adopción'}",
+                                    style: TextStyle(
+                                      color: pet['statusAdoption'] == 0 ? Colors.red : Colors.blue,
+                                      fontSize: 12,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            );
+                          }).toList(),
+                          onChanged: (value) => setState(() => selectedPetId = value),
+                        ),
+                        const SizedBox(height: 20),
+                        TextField(
+                          controller: descriptionController,
+                          decoration: const InputDecoration(
+                            labelText: "Detalles de la pérdida",
+                            hintText: "¿Dónde y cuándo se perdió?",
+                            border: OutlineInputBorder(),
+                          ),
+                          maxLines: 3,
+                        ),
+                        const SizedBox(height: 10),
+                        ElevatedButton.icon(
+                          icon: const Icon(Icons.image),
+                          label: const Text("Agregar foto reciente"),
+                          onPressed: () async {
+                            final image = await ImagePicker().pickImage(source: ImageSource.gallery);
+                            if (image != null) {
+                              setState(() {
+                                selectedImage = File(image.path);
+                              });
+                            }
+                          },
+                        ),
+                        if (selectedImage != null)
+                          Padding(
+                            padding: const EdgeInsets.only(top: 10),
+                            child: Image.file(selectedImage!, height: 100),
+                          ),
+                      ],
+                    ),
+                  ),
+                  actions: [
+                    TextButton(
+                      onPressed: () => Navigator.pop(context),
+                      child: const Text("Cancelar"),
+                    ),
+                    ElevatedButton(
+                      onPressed: () async {
+                        if (selectedPetId == null || descriptionController.text.isEmpty) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text("Completa todos los campos")),
+                          );
+                          return;
+                        }
+
+                        final selectedPet = userPets.firstWhere(
+                          (pet) => pet['id'].toString() == selectedPetId,
+                        );
+
+                        // Actualizar el status a 0 (perdida) si no lo estaba
+                        if (selectedPet['statusAdoption'] != 0) {
+                          await http.put(
+                            Uri.parse("$baseUrl/pets/${selectedPet['id']}/"),
+                            headers: {
+                              "Content-Type": "application/json",
+                              "Authorization": "Bearer $token",
+                            },
+                            body: jsonEncode({
+                              ...selectedPet,
+                              "statusAdoption": 0,
+                            }),
+                          );
+                        }
+
+                        // Crear el post
+                        await _createPostForLostPet(
+                          selectedPet['id'],
+                          descriptionController.text,
+                        );
+
+                        Navigator.pop(context);
+                      },
+                      child: const Text("Reportar"),
+                    ),
+                  ],
+                );
+              },
+            );
+          },
+        );
+      } else {
+        throw Exception("Error al obtener mascotas: ${response.statusCode}");
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("Error: ${e.toString()}")),
+      );
+    }
+  }
+
+  Future<void> _createPostForLostPet(int petId, String description) async {
+    final SharedPreferences prefs = await SharedPreferences.getInstance();
+    final String? token = prefs.getString('jwt_token');
+    final int? userId = prefs.getInt('user_id');
+
+    if (token == null || userId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Debes iniciar sesión")),
+      );
+      return;
+    }
+
+    setState(() {
+      isLoading = true;
+    });
+
+    try {
+      // 1. Crear el post
+      final postResponse = await http.post(
+        Uri.parse("$baseUrl/posts/"),
         headers: {
           "Content-Type": "application/json",
           "Authorization": "Bearer $token",
         },
         body: jsonEncode({
-          "name": name,
-          "age": age,
-          "breed": breed,
-          "size": size,
-          "petDetails": details,
-          "userId": userId, // Usar el ID del usuario autenticado
-          "statusAdoption": 0, // Estado LOST
-          "qrId": 1, // Asignar un código QR por defecto
+          "title": "Mascota perdida",
+          "description": description,
+          "postDate": DateFormat('yyyy-MM-dd').format(DateTime.now()),
+          "petId": petId,
+          "userId": userId,
         }),
       );
 
-      if (petResponse.statusCode == 201) {
-        final petData = jsonDecode(petResponse.body);
-        final petId = petData['id'];
+      if (postResponse.statusCode != 201) {
+        throw Exception("Error al crear post: ${postResponse.body}");
+      }
 
-        // Formatear la fecha en YYYY-MM-DD
-        final String formattedDate = DateFormat(
-          'yyyy-MM-dd',
-        ).format(DateTime.now());
+      final postData = jsonDecode(postResponse.body);
+      final postId = postData['id'];
 
-        // Crear el post asociado a la mascota perdida
-        final postResponse = await http.post(
-          Uri.parse(postUrl),
+      // 2. Subir imagen si existe
+      if (selectedImage != null) {
+        final request = http.MultipartRequest(
+          "POST", 
+          Uri.parse("$baseUrl/imgs-post/")
+        )
+          ..headers['Authorization'] = 'Bearer $token'
+          ..fields['idPost'] = postId.toString()
+          ..files.add(await http.MultipartFile.fromPath(
+            'imgURL',
+            selectedImage!.path,
+          ));
+
+        final response = await request.send();
+
+        if (response.statusCode != 201) {
+          throw Exception("Error al subir imagen");
+        }
+      }
+
+      // 3. Enviar notificaciones
+      try {
+        await http.post(
+          Uri.parse("$baseUrl/notifications/send-lost-pet/"),
           headers: {
             "Content-Type": "application/json",
             "Authorization": "Bearer $token",
           },
           body: jsonEncode({
-            "title": "Mascota perdida: $name",
-            "description": description,
-            "postDate": formattedDate,
-            "petId": petId,
-            "userId": userId, // Usar el ID del usuario autenticado
+            "post_id": postId,
+            "pet_name": "Mascota perdida",
+            "user_id": userId,
           }),
         );
-
-        if (postResponse.statusCode == 201 && selectedImage != null) {
-          final postData = jsonDecode(postResponse.body);
-          final postId = postData['id'];
-
-          // Subir la imagen asociada al post
-          final request =
-          http.MultipartRequest("POST", Uri.parse(imgUrl))
-            ..headers['Authorization'] = 'Bearer $token'
-            ..fields['idPost'] = postId.toString()
-            ..files.add(
-              await http.MultipartFile.fromPath(
-                'imgURL',
-                selectedImage!.path,
-              ),
-            );
-
-          final response = await request.send();
-
-          if (response.statusCode == 201) {
-            print("Imagen subida exitosamente");
-            fetchData(); // Actualizar la lista de publicaciones
-          } else {
-            final responseBody = await response.stream.bytesToString();
-            print(
-              "Error al subir la imagen: ${response.statusCode}, $responseBody",
-            );
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text("Error al subir la imagen: $responseBody"),
-              ),
-            );
-          }
-        } else {
-          print("Error en postResponse: ${postResponse.body}");
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text("Error al crear el post: ${postResponse.body}"),
-            ),
-          );
-        }
-      } else {
-        print("Error en petResponse: ${petResponse.body}");
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text("Error al reportar la mascota: ${petResponse.body}"),
-          ),
-        );
+      } catch (e) {
+        print("Error enviando notificaciones: $e");
       }
+
+      // 4. Actualizar la lista
+      await fetchData();
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Publicación creada exitosamente")),
+      );
     } catch (e) {
-      print("Error: $e");
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text("Error: $e")));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("Error: ${e.toString()}")),
+      );
+      print("Error creando publicación: $e");
     } finally {
       setState(() {
-        isLoading = false; // Desactivar indicador de carga
+        isLoading = false;
+        selectedImage = null;
       });
     }
   }
 
-  // Selector de imagen desde galería o cámara
-  Future<void> pickImage() async {
-    final ImagePicker picker = ImagePicker();
-    final XFile? image = await picker.pickImage(source: ImageSource.gallery);
+  Widget _buildPostCard(dynamic post) {
+    final pet = post['pet'];
+    final images = post['images'] as List<dynamic>;
+    final user = post['user'];
 
-    if (image != null) {
-      setState(() {
-        selectedImage = File(image.path);
-      });
-    }
-  }
-
-  void showReportLostPetModal() {
-    TextEditingController nameController = TextEditingController();
-    TextEditingController breedController = TextEditingController();
-    TextEditingController detailsController = TextEditingController();
-    TextEditingController descriptionController = TextEditingController();
-    String? selectedSize;
-    String? selectedAge;
-
-    showDialog(
-      context: context,
-      builder: (context) {
-        return AlertDialog(
-          title: const Text("Reportar mascota perdida"),
-          content: SingleChildScrollView(
-            child: Column(
-              children: [
-                TextField(
-                  controller: nameController,
-                  decoration: const InputDecoration(labelText: "Nombre"),
+    return FutureBuilder<SharedPreferences>(
+      future: SharedPreferences.getInstance(),
+      builder: (context, snapshot) {
+        if (!snapshot.hasData) {
+          return const SizedBox();
+        }
+        
+        final currentUserId = snapshot.data!.getInt('user_id');
+        
+        return Card(
+          elevation: 3,
+          margin: const EdgeInsets.symmetric(vertical: 10),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Padding(
+                padding: const EdgeInsets.all(10),
+                child: Row(
+                  children: [
+                    CircleAvatar(
+                      backgroundImage: user != null && user['profilePhoto'] != null
+                          ? NetworkImage("$mediaUrl${user['profilePhoto']}")
+                          : const AssetImage("assets/images/default_profile.jpg") as ImageProvider,
+                      radius: 20,
+                    ),
+                    const SizedBox(width: 10),
+                    Text(
+                      user != null ? "${user['name']} ${user['first_name']}" : "Usuario desconocido",
+                      style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                    ),
+                  ],
                 ),
-                DropdownButton<String>(
-                  hint: const Text("Edad"),
-                  value: selectedAge,
-                  items:
-                  ["Cachorro", "Joven", "Adulto"].map((String value) {
-                    return DropdownMenuItem<String>(
-                      value: value,
-                      child: Text(value),
-                    );
-                  }).toList(),
-                  onChanged: (newValue) {
-                    setState(() {
-                      selectedAge = newValue;
-                    });
-                  },
-                ),
-                TextField(
-                  controller: breedController,
-                  decoration: const InputDecoration(labelText: "Raza"),
-                ),
-                DropdownButton<String>(
-                  hint: const Text("Tamaño"),
-                  value: selectedSize,
-                  items:
-                  ["Pequeño", "Mediano", "Grande"].map((String value) {
-                    return DropdownMenuItem<String>(
-                      value: value,
-                      child: Text(value),
-                    );
-                  }).toList(),
-                  onChanged: (newValue) {
-                    setState(() {
-                      selectedSize = newValue;
-                    });
-                  },
-                ),
-                TextField(
-                  controller: detailsController,
-                  decoration: const InputDecoration(
-                    labelText: "Lugar donde se perdió",
+              ),
+              if (images.isNotEmpty)
+                SizedBox(
+                  height: 200,
+                  child: ListView.builder(
+                    scrollDirection: Axis.horizontal,
+                    itemCount: images.length,
+                    itemBuilder: (context, imgIndex) {
+                      return Image.network(
+                        "$mediaUrl${images[imgIndex]['imgURL']}",
+                        fit: BoxFit.cover,
+                        width: MediaQuery.of(context).size.width,
+                        errorBuilder: (context, error, stackTrace) {
+                          return Container(
+                            color: Colors.grey[300],
+                            child: const Center(child: Icon(Icons.error, color: Colors.red)),
+                          );
+                        },
+                      );
+                    },
                   ),
                 ),
-                TextField(
-                  controller: descriptionController,
-                  decoration: const InputDecoration(labelText: "Descripción"),
-                ),
-                const SizedBox(height: 10),
-                ElevatedButton.icon(
-                  icon: const Icon(Icons.image),
-                  label: const Text("Seleccionar Imagen"),
-                  onPressed: pickImage,
-                ),
-                if (selectedImage != null)
-                  Image.file(selectedImage!, height: 100),
-              ],
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text("Cancelar"),
-            ),
-            ElevatedButton(
-              onPressed: () async {
-                if (nameController.text.isEmpty ||
-                    selectedAge == null ||
-                    breedController.text.isEmpty ||
-                    selectedSize == null ||
-                    detailsController.text.isEmpty ||
-                    descriptionController.text.isEmpty ||
-                    selectedImage == null) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text("Por favor, completa todos los campos"),
+              Padding(
+                padding: const EdgeInsets.all(10),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      pet['name'] ?? "Nombre no disponible",
+                      style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                     ),
-                  );
-                  return;
-                }
-
-                await reportLostPet(
-                  nameController.text,
-                  selectedAge!,
-                  breedController.text,
-                  selectedSize!,
-                  detailsController.text,
-                  descriptionController.text,
-                );
-                Navigator.pop(context);
-              },
-              child:
-              isLoading
-                  ? CircularProgressIndicator(color: Colors.white)
-                  : const Text("Reportar"),
-            ),
-          ],
+                    const SizedBox(height: 5),
+                    Text("Edad: ${pet['age'] ?? "Desconocida"}", style: const TextStyle(fontSize: 14)),
+                    const SizedBox(height: 5),
+                    Text("Raza: ${pet['breed'] ?? "Desconocida"}", style: const TextStyle(fontSize: 14)),
+                    const SizedBox(height: 5),
+                    Text("Tamaño: ${pet['size'] ?? "Desconocido"}", style: const TextStyle(fontSize: 14)),
+                    const SizedBox(height: 5),
+                    Text(
+                      "Lugar donde se perdió: ${pet['petDetails'] ?? "Sin detalles"}",
+                      style: const TextStyle(fontSize: 14),
+                    ),
+                    const SizedBox(height: 5),
+                    Text(
+                      "Descripción: ${post['description'] ?? "Sin descripción"}",
+                      style: const TextStyle(fontSize: 14),
+                    ),
+                    const SizedBox(height: 10),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        TextButton.icon(
+                          icon: const Icon(Icons.comment, color: Colors.blue),
+                          label: const Text("Comentar"),
+                          onPressed: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => CommentScreen(postId: post['id']),
+                              ),
+                            );
+                          },
+                        ),
+                        TextButton.icon(
+                          icon: const Icon(Icons.message, color: Colors.green),
+                          label: const Text("Enviar mensaje"),
+                          onPressed: () async {
+                            final prefs = await SharedPreferences.getInstance();
+                            if (prefs.getInt('user_id') == null || prefs.getString('jwt_token') == null) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(content: Text("Debes iniciar sesión")),
+                              );
+                              return;
+                            }
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => MessagesScreen(
+                                  initialRecipientId: user['id'],
+                                  initialRecipientName: user['name'] ?? 'Usuario',
+                                ),
+                              ),
+                            );
+                          },
+                        ),
+                      ],
+                    ),
+                    if (user != null && user['id'] == currentUserId)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 10),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.end,
+                          children: [
+                            IconButton(
+                              icon: const Icon(Icons.delete, color: Colors.red),
+                              onPressed: () async {
+                                final confirmed = await showDialog(
+                                  context: context,
+                                  builder: (context) => AlertDialog(
+                                    title: const Text("Eliminar publicación"),
+                                    content: const Text("¿Estás seguro de que quieres eliminar esta publicación?"),
+                                    actions: [
+                                      TextButton(
+                                        onPressed: () => Navigator.pop(context, false),
+                                        child: const Text("Cancelar"),
+                                      ),
+                                      TextButton(
+                                        onPressed: () => Navigator.pop(context, true),
+                                        child: const Text("Eliminar", style: TextStyle(color: Colors.red)),
+                                      ),
+                                    ],
+                                  ),
+                                );
+                                
+                                if (confirmed == true) {
+                                  await _deletePost(post['id']);
+                                }
+                              },
+                            ),
+                          ],
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+            ],
+          ),
         );
       },
     );
   }
+
+  Future<void> _createPostWithExistingPet() async {
+    final SharedPreferences prefs = await SharedPreferences.getInstance();
+    final String? token = prefs.getString('jwt_token');
+    final int? userId = prefs.getInt('user_id');
+
+    if (token == null || userId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Debes iniciar sesión")),
+      );
+      return;
+    }
+
+    try {
+      final response = await http.get(
+        Uri.parse("$baseUrl/pets/user/$userId/"),
+        headers: {"Authorization": "Bearer $token"},
+      );
+
+      if (response.statusCode == 200) {
+        final List<dynamic> userPets = jsonDecode(response.body);
+        
+        // Filtrar solo mascotas con statusAdoption = 2 (Buscando familia)
+        print(userPets);
+        final availablePets = userPets.where((pet) => pet['status'] == 0 ).toList();
+        
+        if (availablePets.isEmpty) {
+          await showDialog(
+            context: context,
+            builder: (context) => AlertDialog(
+              title: const Text("No tienes mascotas disponibles"),
+              content: const Text("No tienes mascotas con estado 'Buscando familia' para publicar.\n\nPuedes cambiar el estado de tus mascotas en la sección 'Mis Mascotas'."),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text("Cancelar"),
+                ),
+                TextButton(
+                  onPressed: () {
+                    Navigator.pop(context);
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (context) => const AddPetScreen()),
+                    ).then((_) => fetchData());
+                  },
+                  child: const Text("Crear mascota"),
+                ),
+              ],
+            ),
+          );
+          return;
+        }
+
+        String? selectedPetId;
+        final descriptionController = TextEditingController();
+
+        await showDialog(
+          context: context,
+          builder: (context) {
+            return StatefulBuilder(
+              builder: (context, setState) {
+                return AlertDialog(
+                  title: const Text("Publicar mascota en adopción"),
+                  content: SingleChildScrollView(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Text("Mascotas disponibles para adopción:",
+                          style: TextStyle(fontWeight: FontWeight.bold)),
+                        const SizedBox(height: 10),
+                        DropdownButtonFormField<String>(
+                          value: selectedPetId,
+                          hint: const Text("Selecciona una mascota"),
+                          items: availablePets.map((pet) {
+                            return DropdownMenuItem<String>(
+                              value: pet['id'].toString(),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text("${pet['name']} - ${pet['breed']}"),
+                                  Text("Edad: ${pet['age']}",
+                                    style: const TextStyle(fontSize: 12, color: Colors.grey)),
+                                ],
+                              ),
+                            );
+                          }).toList(),
+                          onChanged: (value) => setState(() => selectedPetId = value),
+                        ),
+                        const SizedBox(height: 20),
+                        TextField(
+                          controller: descriptionController,
+                          decoration: const InputDecoration(
+                            labelText: "Descripción de la publicación",
+                            border: OutlineInputBorder(),
+                            hintText: "Describe a la mascota y las condiciones de adopción...",
+                          ),
+                          maxLines: 4,
+                        ),
+                        const SizedBox(height: 10),
+                        ElevatedButton.icon(
+                          icon: const Icon(Icons.image),
+                          label: const Text("Seleccionar Imagen"),
+                          onPressed: () async {
+                            final image = await ImagePicker().pickImage(source: ImageSource.gallery);
+                            if (image != null) {
+                              setState(() {
+                                selectedImage = File(image.path);
+                              });
+                            }
+                          },
+                        ),
+                        if (selectedImage != null)
+                          Padding(
+                            padding: const EdgeInsets.only(top: 10),
+                            child: Column(
+                              children: [
+                                Image.file(selectedImage!, height: 100),
+                                TextButton(
+                                  onPressed: () => setState(() => selectedImage = null),
+                                  child: const Text("Quitar imagen", 
+                                    style: TextStyle(color: Colors.red)),
+                                ),
+                              ],
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                  actions: [
+                    TextButton(
+                      onPressed: () => Navigator.pop(context),
+                      child: const Text("Cancelar"),
+                    ),
+                    ElevatedButton(
+                      onPressed: () async {
+                        if (selectedPetId == null || descriptionController.text.isEmpty) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text("Debes seleccionar una mascota y escribir una descripción")),
+                          );
+                          return;
+                        }
+
+                        setState(() => isLoading = true);
+                        Navigator.pop(context);
+
+                        try {
+                          // Crear la publicación
+                          final postResponse = await http.post(
+                            Uri.parse("$baseUrl/posts/"),
+                            headers: {
+                              "Content-Type": "application/json",
+                              "Authorization": "Bearer $token",
+                            },
+                            body: jsonEncode({
+                              "title": "Mascota en adopción",
+                              "description": descriptionController.text,
+                              "postDate": DateFormat('yyyy-MM-dd').format(DateTime.now()),
+                              "petId": int.parse(selectedPetId!),
+                              "userId": userId,
+                            }),
+                          );
+
+                          if (postResponse.statusCode == 201) {
+                            // Subir imagen si se seleccionó
+                            if (selectedImage != null) {
+                              final postData = jsonDecode(postResponse.body);
+                              final postId = postData['id'];
+
+                              final request = http.MultipartRequest(
+                                "POST", 
+                                Uri.parse("$baseUrl/imgs-post/")
+                              )
+                                ..headers['Authorization'] = 'Bearer $token'
+                                ..fields['idPost'] = postId.toString()
+                                ..files.add(await http.MultipartFile.fromPath(
+                                  'imgURL',
+                                  selectedImage!.path,
+                                ));
+
+                              final imgResponse = await request.send();
+                              if (imgResponse.statusCode != 201) {
+                                throw Exception("Error al subir imagen");
+                              }
+                            }
+
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(content: Text("¡Publicación creada con éxito!")),
+                            );
+                            await fetchData();
+                          } else {
+                            throw Exception("Error al crear publicación: ${postResponse.body}");
+                          }
+                        } catch (e) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(content: Text("Error: ${e.toString()}")),
+                          );
+                        } finally {
+                          setState(() {
+                            isLoading = false;
+                            selectedImage = null;
+                          });
+                        }
+                      },
+                      child: const Text("Publicar"),
+                    ),
+                  ],
+                );
+              },
+            );
+          },
+        );
+      } else {
+        throw Exception("Error al obtener mascotas: ${response.statusCode}");
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("Error: ${e.toString()}")),
+      );
+    }
+  }
+
 
   @override
   Widget build(BuildContext context) {
@@ -413,216 +858,30 @@ class _LostPetsScreenState extends State<LostPetsScreen> {
             textAlign: TextAlign.center,
           ),
           Expanded(
-            child:
-            isLoading
+            child: isLoading
                 ? const Center(child: CircularProgressIndicator())
                 : posts.isEmpty
-                ? Center(
-              child: Text(
-                errorMessage.isEmpty
-                    ? "No hay mascotas perdidas cerca de tu ubicación"
-                    : errorMessage,
-                style: const TextStyle(fontSize: 18),
-              ),
-            )
-                : ListView.builder(
-              padding: const EdgeInsets.all(10),
-              itemCount: posts.length,
-              itemBuilder: (context, index) {
-                final post = posts[index];
-                final pet = post['pet'];
-                final images = post['images'] as List<dynamic>;
-                final user = post['user'];
-
-                return Card(
-                  elevation: 3,
-                  margin: const EdgeInsets.symmetric(vertical: 10),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Padding(
-                        padding: const EdgeInsets.all(10),
-                        child: Row(
-                          children: [
-                            CircleAvatar(
-                              backgroundImage:
-                              user != null &&
-                                  user['profilePhoto'] != null
-                                  ? NetworkImage(
-                                "$baseUrl${user['profilePhoto']}",
-                              )
-                                  : const AssetImage(
-                                "assets/images/default_profile.jpg",
-                              )
-                              as ImageProvider,
-                              radius: 20,
-                            ),
-                            const SizedBox(width: 10),
-                            Text(
-                              user != null
-                                  ? "${user['name']} ${user['first_name']}"
-                                  : "Usuario desconocido",
-                              style: const TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ],
+                    ? Center(
+                        child: Text(
+                          errorMessage.isEmpty ? "No hay mascotas perdidas reportadas" : errorMessage,
+                          style: const TextStyle(fontSize: 18),
+                        ),
+                      )
+                    : RefreshIndicator(
+                        onRefresh: fetchData,
+                        child: ListView.builder(
+                          controller: _scrollController,
+                          padding: const EdgeInsets.all(10),
+                          itemCount: posts.length,
+                          itemBuilder: (context, index) => _buildPostCard(posts[index]),
                         ),
                       ),
-                      if (images.isNotEmpty)
-                        SizedBox(
-                          height: 200,
-                          child: ListView.builder(
-                            scrollDirection: Axis.horizontal,
-                            itemCount: images.length,
-                            itemBuilder: (context, imgIndex) {
-                              final imageUrl =
-                                  "$baseUrl${images[imgIndex]['imgURL']}";
-                              return Image.network(
-                                imageUrl,
-                                fit: BoxFit.cover,
-                                width:
-                                MediaQuery.of(context).size.width,
-                                errorBuilder: (
-                                    context,
-                                    error,
-                                    stackTrace,
-                                    ) {
-                                  return Container(
-                                    color: Colors.grey[300],
-                                    child: const Center(
-                                      child: Icon(
-                                        Icons.error,
-                                        color: Colors.red,
-                                      ),
-                                    ),
-                                  );
-                                },
-                              );
-                            },
-                          ),
-                        ),
-                      Padding(
-                        padding: const EdgeInsets.all(10),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              pet['name'] ?? "Nombre no disponible",
-                              style: const TextStyle(
-                                fontSize: 18,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                            const SizedBox(height: 5),
-                            Text(
-                              "Edad: ${pet['age'] ?? "Desconocida"}",
-                              style: const TextStyle(fontSize: 14),
-                            ),
-                            const SizedBox(height: 5),
-                            Text(
-                              "Raza: ${pet['breed'] ?? "Desconocida"}",
-                              style: const TextStyle(fontSize: 14),
-                            ),
-                            const SizedBox(height: 5),
-                            Text(
-                              "Tamaño: ${pet['size'] ?? "Desconocido"}",
-                              style: const TextStyle(fontSize: 14),
-                            ),
-                            const SizedBox(height: 5),
-                            Text(
-                              "Lugar donde se perdió: ${pet['petDetails'] ?? "Sin detalles"}",
-                              style: const TextStyle(fontSize: 14),
-                            ),
-                            const SizedBox(height: 5),
-                            Text(
-                              "Descripción: ${post['description'] ?? "Sin descripción"}",
-                              style: const TextStyle(fontSize: 14),
-                            ),
-                            const SizedBox(height: 10),
-                            Row(
-                              mainAxisAlignment:
-                              MainAxisAlignment.spaceBetween,
-                              children: [
-                                TextButton.icon(
-                                  icon: const Icon(
-                                    Icons.comment,
-                                    color: Colors.blue,
-                                  ),
-                                  label: const Text("Comentar"),
-                                  onPressed: () {
-                                    Navigator.push(
-                                      context,
-                                      MaterialPageRoute(
-                                        builder:
-                                            (context) => CommentScreen(
-                                          postId: post['id'],
-                                        ),
-                                      ),
-                                    );
-                                  },
-                                ),
-                                // En el botón de enviar mensaje, reemplazar el código actual con:
-                                TextButton.icon(
-                                  icon: const Icon(
-                                    Icons.message,
-                                    color: Colors.green,
-                                  ),
-                                  label: const Text("Enviar mensaje"),
-                                  onPressed: () async {
-                                    final String? token = prefs
-                                        .getString('jwt_token');
-                                    final int? userId = prefs.getInt(
-                                      'user_id',
-                                    );
-
-                                    if (token == null ||
-                                        userId == null ||
-                                        user == null) {
-                                      ScaffoldMessenger.of(
-                                        context,
-                                      ).showSnackBar(
-                                        const SnackBar(
-                                          content: Text(
-                                            "Debes iniciar sesión",
-                                          ),
-                                        ),
-                                      );
-                                      return;
-                                    }
-
-                                    // Navegar a MessagesScreen con el ID del usuario de la publicación
-                                    Navigator.push(
-                                      context,
-                                      MaterialPageRoute(
-                                        builder:
-                                            (context) => MessagesScreen(
-                                          initialRecipientId:
-                                          user['id'],
-                                          initialRecipientName:
-                                          '${user['name']} ${user['first_name']}',
-                                        ),
-                                      ),
-                                    );
-                                  },
-                                ),
-                              ],
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                );
-              },
-            ),
           ),
         ],
       ),
       floatingActionButton: FloatingActionButton.extended(
-        onPressed: showReportLostPetModal,
-        label: const Text("Perdí a mi mascota"),
+        onPressed: _createPostWithExistingPet,
+        label: const Text("Reportar mascota perdida"),
         icon: const Icon(Icons.add),
       ),
     );

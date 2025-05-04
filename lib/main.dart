@@ -14,6 +14,11 @@ import 'screens/notifications_screen.dart';
 import 'screens/messages_screen.dart';
 import 'services/pet_provider.dart';
 import 'services/theme_provider.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
+void main() async {
+  await dotenv.load(fileName: ".env"); // Especifica el nombre del archivo
+  runApp(const MyApp());
+}
 
 // Colores principales
 const Color primaryColor = Colors.blueAccent;
@@ -93,10 +98,6 @@ class ColorBlindnessFilter extends StatelessWidget {
       child: child,
     );
   }
-}
-
-void main() {
-  runApp(MyApp());
 }
 
 class MyApp extends StatelessWidget {
