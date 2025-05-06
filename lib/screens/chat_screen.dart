@@ -9,10 +9,10 @@ class ChatScreen extends StatefulWidget {
   final String recipientName;
 
   const ChatScreen({
-    Key? key,
+    super.key,
     required this.chatId,
     required this.recipientName,
-  }) : super(key: key);
+  });
 
   @override
   _ChatScreenState createState() => _ChatScreenState();
@@ -179,11 +179,11 @@ class MessageBubble extends StatelessWidget {
   final String timestamp;
 
   const MessageBubble({
-    Key? key,
+    super.key,
     required this.message,
     required this.isMe,
     required this.timestamp,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {

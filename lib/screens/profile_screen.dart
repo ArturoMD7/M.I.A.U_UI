@@ -3,7 +3,6 @@ import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'dart:io';
 import 'package:image_picker/image_picker.dart';
-import 'package:miauuic/screens/register_screen.dart';
 import 'package:provider/provider.dart';
 import '../services/theme_provider.dart';
 import 'custom_app_bar.dart';
