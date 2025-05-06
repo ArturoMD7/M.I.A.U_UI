@@ -15,7 +15,8 @@ import 'create_pet_screen.dart';
 
 class LostPetsScreen extends StatefulWidget {
   final int? initialPostId;
-  const LostPetsScreen({super.key, this.initialPostId});
+  final bool isModal;
+  const LostPetsScreen({super.key, this.initialPostId, this.isModal=false});
 
   @override
   _LostPetsScreenState createState() => _LostPetsScreenState();
@@ -234,6 +235,7 @@ class _LostPetsScreenState extends State<LostPetsScreen> {
 
         String? selectedPetId;
         final descriptionController = TextEditingController();
+        File? selectedImage;
 
         await showDialog(
           context: context,
@@ -257,9 +259,9 @@ class _LostPetsScreenState extends State<LostPetsScreen> {
                                 children: [
                                   Text("${pet['name']} (${pet['breed']})"),
                                   Text(
-                                    "Estado: ${pet['statusAdoption'] == 0 ? 'Perdida' : 'En adopción'}",
+                                    "Estado: ${pet['status'] == 0 ? 'Perdida' : 'En adopción'}",
                                     style: TextStyle(
-                                      color: pet['statusAdoption'] == 0 ? Colors.red : Colors.blue,
+                                      color: pet['status'] == 0 ? Colors.red : Colors.blue,
                                       fontSize: 12,
                                     ),
                                   ),
@@ -318,7 +320,7 @@ class _LostPetsScreenState extends State<LostPetsScreen> {
                           (pet) => pet['id'].toString() == selectedPetId,
                         );
 
-                        // Actualizar el status a 0 (perdida) si no lo estaba
+                        // 1. Actualizar estado a perdido si no lo está
                         if (selectedPet['statusAdoption'] != 0) {
                           await http.put(
                             Uri.parse("$baseUrl/pets/${selectedPet['id']}/"),
@@ -333,13 +335,70 @@ class _LostPetsScreenState extends State<LostPetsScreen> {
                           );
                         }
 
-                        // Crear el post
-                        await _createPostForLostPet(
-                          selectedPet['id'],
-                          descriptionController.text,
+                        // 2. Crear el post
+                        final postResponse = await http.post(
+                          Uri.parse("$baseUrl/posts/"),
+                          headers: {
+                            "Content-Type": "application/json",
+                            "Authorization": "Bearer $token",
+                          },
+                          body: jsonEncode({
+                            "title": "Mascota perdida: ${selectedPet['name']}",
+                            "description": descriptionController.text,
+                            "postDate": DateFormat('yyyy-MM-dd').format(DateTime.now()),
+                            "petId": selectedPet['id'],
+                            "userId": userId,
+                          }),
                         );
 
+                        if (postResponse.statusCode != 201) {
+                          throw Exception("Error al crear post: ${postResponse.body}");
+                        }
+
+                        final postData = jsonDecode(postResponse.body);
+                        final postId = postData['id'];
+
+                        // 3. Subir imagen si existe
+                        if (selectedImage != null) {
+                          final request = http.MultipartRequest(
+                            "POST", 
+                            Uri.parse("$baseUrl/imgs-post/")
+                          )
+                            ..headers['Authorization'] = 'Bearer $token'
+                            ..fields['idPost'] = postId.toString()
+                            ..files.add(await http.MultipartFile.fromPath(
+                              'imgURL',
+                              selectedImage!.path,
+                            ));
+
+                          final imgResponse = await request.send();
+                          if (imgResponse.statusCode != 201) {
+                            throw Exception("Error al subir imagen");
+                          }
+                        }
+
+                        // 4. Enviar notificaciones (VERIFICAR QUE ESTA LLAMADA SE EJECUTE)
+                        print("Enviando notificación para postId: $postId");
+                        final notifResponse = await http.post(
+                          Uri.parse('$baseUrl/notifications/send-lost-pet/'),
+                          headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': 'Bearer $token',
+                          },
+                          body: jsonEncode({
+                            'post_id': postId,
+                            'pet_name': selectedPet['name'],
+                            'user_id': userId,
+                          }),
+                        );
+
+                        print("Respuesta notificaciones: ${notifResponse.statusCode} - ${notifResponse.body}");
+
                         Navigator.pop(context);
+                        await fetchData();
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text("Mascota reportada como perdida y notificaciones enviadas")),
+                        );
                       },
                       child: const Text("Reportar"),
                     ),
@@ -356,6 +415,7 @@ class _LostPetsScreenState extends State<LostPetsScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text("Error: ${e.toString()}")),
       );
+      print("Error completo: $e");
     }
   }
 
@@ -419,25 +479,39 @@ class _LostPetsScreenState extends State<LostPetsScreen> {
         }
       }
 
-      // 3. Enviar notificaciones
-      try {
-        await http.post(
-          Uri.parse("$baseUrl/notifications/send-lost-pet/"),
-          headers: {
-            "Content-Type": "application/json",
-            "Authorization": "Bearer $token",
-          },
-          body: jsonEncode({
-            "post_id": postId,
-            "pet_name": "Mascota perdida",
-            "user_id": userId,
-          }),
-        );
-      } catch (e) {
-        print("Error enviando notificaciones: $e");
+      // 3. Obtener el nombre real de la mascota para la notificación
+      final petResponse = await http.get(
+        Uri.parse("$baseUrl/pets/$petId/"),
+        headers: {"Authorization": "Bearer $token"},
+      );
+
+      if (petResponse.statusCode != 200) {
+        throw Exception("Error al obtener detalles de la mascota");
       }
 
-      // 4. Actualizar la lista
+      final petData = jsonDecode(petResponse.body);
+      final petName = petData['name'];
+
+      // 4. Enviar notificaciones a todos los usuarios
+      final notifResponse = await http.post(
+        Uri.parse("$baseUrl/notifications/send-lost-pet/"),
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": "Bearer $token",
+        },
+        body: jsonEncode({
+          "post_id": postId,
+          "pet_name": petName,
+          "user_id": userId,
+        }),
+      );
+
+      if (notifResponse.statusCode != 201) {
+        print("Error en notificación: ${notifResponse.body}");
+        // No es crítico, continuamos aunque falle la notificación
+      }
+
+      // 5. Actualizar la lista
       await fetchData();
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text("Publicación creada exitosamente")),
@@ -454,7 +528,6 @@ class _LostPetsScreenState extends State<LostPetsScreen> {
       });
     }
   }
-
   Widget _buildPostCard(dynamic post) {
     final pet = post['pet'];
     final images = post['images'] as List<dynamic>;
@@ -645,9 +718,7 @@ class _LostPetsScreenState extends State<LostPetsScreen> {
       if (response.statusCode == 200) {
         final List<dynamic> userPets = jsonDecode(response.body);
         
-        // Filtrar solo mascotas con statusAdoption = 2 (Buscando familia)
-        print(userPets);
-        final availablePets = userPets.where((pet) => pet['status'] == 0 ).toList();
+        final availablePets = userPets.where((pet) => pet['status'] == 0).toList();
         
         if (availablePets.isEmpty) {
           await showDialog(
@@ -678,6 +749,7 @@ class _LostPetsScreenState extends State<LostPetsScreen> {
 
         String? selectedPetId;
         final descriptionController = TextEditingController();
+        File? selectedImage;
 
         await showDialog(
           context: context,
@@ -769,7 +841,7 @@ class _LostPetsScreenState extends State<LostPetsScreen> {
                         Navigator.pop(context);
 
                         try {
-                          // Crear la publicación
+                          // 1. Crear la publicación
                           final postResponse = await http.post(
                             Uri.parse("$baseUrl/posts/"),
                             headers: {
@@ -777,7 +849,7 @@ class _LostPetsScreenState extends State<LostPetsScreen> {
                               "Authorization": "Bearer $token",
                             },
                             body: jsonEncode({
-                              "title": "Mascota en adopción",
+                              "title": "Mascota en adopción: ${availablePets.firstWhere((pet) => pet['id'].toString() == selectedPetId)['name']}",
                               "description": descriptionController.text,
                               "postDate": DateFormat('yyyy-MM-dd').format(DateTime.now()),
                               "petId": int.parse(selectedPetId!),
@@ -785,40 +857,64 @@ class _LostPetsScreenState extends State<LostPetsScreen> {
                             }),
                           );
 
-                          if (postResponse.statusCode == 201) {
-                            // Subir imagen si se seleccionó
-                            if (selectedImage != null) {
-                              final postData = jsonDecode(postResponse.body);
-                              final postId = postData['id'];
-
-                              final request = http.MultipartRequest(
-                                "POST", 
-                                Uri.parse("$baseUrl/imgs-post/")
-                              )
-                                ..headers['Authorization'] = 'Bearer $token'
-                                ..fields['idPost'] = postId.toString()
-                                ..files.add(await http.MultipartFile.fromPath(
-                                  'imgURL',
-                                  selectedImage!.path,
-                                ));
-
-                              final imgResponse = await request.send();
-                              if (imgResponse.statusCode != 201) {
-                                throw Exception("Error al subir imagen");
-                              }
-                            }
-
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(content: Text("¡Publicación creada con éxito!")),
-                            );
-                            await fetchData();
-                          } else {
+                          if (postResponse.statusCode != 201) {
                             throw Exception("Error al crear publicación: ${postResponse.body}");
                           }
+
+                          final postData = jsonDecode(postResponse.body);
+                          final postId = postData['id'];
+
+                          // 2. Subir imagen si se seleccionó
+                          if (selectedImage != null) {
+                            final request = http.MultipartRequest(
+                              "POST", 
+                              Uri.parse("$baseUrl/imgs-post/")
+                            )
+                              ..headers['Authorization'] = 'Bearer $token'
+                              ..fields['idPost'] = postId.toString()
+                              ..files.add(await http.MultipartFile.fromPath(
+                                'imgURL',
+                                selectedImage!.path,
+                              ));
+
+                            final imgResponse = await request.send();
+                            if (imgResponse.statusCode != 201) {
+                              throw Exception("Error al subir imagen");
+                            }
+                          }
+
+                          // 3. Obtener nombre de la mascota
+                          final selectedPet = availablePets.firstWhere(
+                            (pet) => pet['id'].toString() == selectedPetId
+                          );
+                          final petName = selectedPet['name'];
+
+                          // 4. Enviar notificaciones a todos los usuarios
+                          print("Enviando notificación para mascota en adopción");
+                          final notifResponse = await http.post(
+                            Uri.parse('$baseUrl/notifications/send-lost-pet/'),
+                            headers: {
+                              'Content-Type': 'application/json',
+                              'Authorization': 'Bearer $token',
+                            },
+                            body: jsonEncode({
+                              'post_id': postId,
+                              'pet_name': petName,
+                              'user_id': userId,
+                            }),
+                          );
+
+                          print("Respuesta notificaciones: ${notifResponse.statusCode} - ${notifResponse.body}");
+
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text("¡Publicación creada con éxito y notificaciones enviadas!")),
+                          );
+                          await fetchData();
                         } catch (e) {
                           ScaffoldMessenger.of(context).showSnackBar(
                             SnackBar(content: Text("Error: ${e.toString()}")),
                           );
+                          print("Error completo: $e");
                         } finally {
                           setState(() {
                             isLoading = false;
@@ -843,8 +939,6 @@ class _LostPetsScreenState extends State<LostPetsScreen> {
       );
     }
   }
-
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(

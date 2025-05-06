@@ -1,5 +1,6 @@
 // main.dart
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import 'screens/add_pet_screen.dart';
 import 'package:provider/provider.dart';
 import 'screens/login_screen.dart';
@@ -15,8 +16,13 @@ import 'screens/messages_screen.dart';
 import 'services/pet_provider.dart';
 import 'services/theme_provider.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'dart:ui' as ui;
+import 'package:intl/date_symbol_data_local.dart';
+
+
 void main() async {
-  await dotenv.load(fileName: ".env"); // Especifica el nombre del archivo
+  await dotenv.load(fileName: ".env");
+  await initializeDateFormatting('es', null); // Aquí cargas el idioma español
   runApp(const MyApp());
 }
 
@@ -35,11 +41,11 @@ class ColorBlindnessFilter extends StatelessWidget {
   final double severity;
 
   const ColorBlindnessFilter({
-    Key? key,
+    super.key,
     required this.child,
     required this.type,
     required this.severity,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {

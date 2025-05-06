@@ -10,10 +10,10 @@ class MessagesScreen extends StatefulWidget {
   final String? initialRecipientName;
 
   const MessagesScreen({
-    Key? key,
+    super.key,
     this.initialRecipientId,
     this.initialRecipientName,
-  }) : super(key: key);
+  });
 
   @override
   _MessagesScreenState createState() => _MessagesScreenState();
@@ -31,7 +31,7 @@ class _MessagesScreenState extends State<MessagesScreen> {
   void initState() {
     super.initState();
     apiUrl = dotenv.env['API_URL'] ?? '192.168.1.133:8000/';
-    baseUrl = "$apiUrl";
+    baseUrl = apiUrl;
     _initPrefs();
   }
 

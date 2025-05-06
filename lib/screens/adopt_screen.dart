@@ -6,15 +6,15 @@ import 'dart:convert';
 import 'dart:io';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:intl/intl.dart';
-import 'package:provider/provider.dart';
 import 'custom_app_bar.dart';
 import 'messages_screen.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'comment_screen.dart';
-import 'create_pet_screen.dart';
 
 class AdoptScreen extends StatefulWidget {
-  const AdoptScreen({super.key});
+  final int? initialPostId;
+  final bool isModal;
+  const AdoptScreen({super.key, this.initialPostId, this.isModal=false});
 
   @override
   _AdoptScreenState createState() => _AdoptScreenState();
@@ -119,6 +119,14 @@ class _AdoptScreenState extends State<AdoptScreen> {
       } else {
         throw Exception("Error al cargar los datos");
       }
+
+      print('API_URL: $apiUrl');
+      print('Token: $token');
+      print('postsResponse.statusCode: ${postsResponse.statusCode}');
+      print('petsResponse.statusCode: ${petsResponse.statusCode}');
+      print('imgsResponse.statusCode: ${imgsResponse.statusCode}');
+      print('usersResponse.statusCode: ${usersResponse.statusCode}');
+
     } catch (e) {
       setState(() {
         isLoading = false;
@@ -270,6 +278,7 @@ class _AdoptScreenState extends State<AdoptScreen> {
     );
   }
 
+
   Future<void> _createPostWithExistingPet() async {
     final SharedPreferences prefs = await SharedPreferences.getInstance();
     final String? token = prefs.getString('jwt_token');
@@ -323,6 +332,7 @@ class _AdoptScreenState extends State<AdoptScreen> {
 
         String? selectedPetId;
         final descriptionController = TextEditingController();
+        File? selectedImage;
 
         await showDialog(
           context: context,
@@ -414,7 +424,11 @@ class _AdoptScreenState extends State<AdoptScreen> {
                         Navigator.pop(context);
 
                         try {
-                          // Crear la publicación
+                          final selectedPet = availablePets.firstWhere(
+                            (pet) => pet['id'].toString() == selectedPetId
+                          );
+
+                          // 1. Crear la publicación
                           final postResponse = await http.post(
                             Uri.parse("$baseUrl/posts/"),
                             headers: {
@@ -422,7 +436,7 @@ class _AdoptScreenState extends State<AdoptScreen> {
                               "Authorization": "Bearer $token",
                             },
                             body: jsonEncode({
-                              "title": "Mascota en adopción",
+                              "title": "Mascota en adopción: ${selectedPet['name']}",
                               "description": descriptionController.text,
                               "postDate": DateFormat('yyyy-MM-dd').format(DateTime.now()),
                               "petId": int.parse(selectedPetId!),
@@ -430,40 +444,58 @@ class _AdoptScreenState extends State<AdoptScreen> {
                             }),
                           );
 
-                          if (postResponse.statusCode == 201) {
-                            // Subir imagen si se seleccionó
-                            if (selectedImage != null) {
-                              final postData = jsonDecode(postResponse.body);
-                              final postId = postData['id'];
-
-                              final request = http.MultipartRequest(
-                                "POST", 
-                                Uri.parse("$baseUrl/imgs-post/")
-                              )
-                                ..headers['Authorization'] = 'Bearer $token'
-                                ..fields['idPost'] = postId.toString()
-                                ..files.add(await http.MultipartFile.fromPath(
-                                  'imgURL',
-                                  selectedImage!.path,
-                                ));
-
-                              final imgResponse = await request.send();
-                              if (imgResponse.statusCode != 201) {
-                                throw Exception("Error al subir imagen");
-                              }
-                            }
-
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(content: Text("¡Publicación creada con éxito!")),
-                            );
-                            await fetchData();
-                          } else {
+                          if (postResponse.statusCode != 201) {
                             throw Exception("Error al crear publicación: ${postResponse.body}");
                           }
+
+                          final postData = jsonDecode(postResponse.body);
+                          final postId = postData['id'];
+
+                          // 2. Subir imagen si se seleccionó
+                          if (selectedImage != null) {
+                            final request = http.MultipartRequest(
+                              "POST", 
+                              Uri.parse("$baseUrl/imgs-post/")
+                            )
+                              ..headers['Authorization'] = 'Bearer $token'
+                              ..fields['idPost'] = postId.toString()
+                              ..files.add(await http.MultipartFile.fromPath(
+                                'imgURL',
+                                selectedImage!.path,
+                              ));
+
+                            final imgResponse = await request.send();
+                            if (imgResponse.statusCode != 201) {
+                              throw Exception("Error al subir imagen");
+                            }
+                          }
+
+                          // 3. Enviar notificaciones a todos los usuarios
+                          print("Enviando notificación de adopción");
+                          final notifResponse = await http.post(
+                            Uri.parse('$baseUrl/notifications/send-adoption-pet/'),
+                            headers: {
+                              'Content-Type': 'application/json',
+                              'Authorization': 'Bearer $token',
+                            },
+                            body: jsonEncode({
+                              'post_id': postId,
+                              'pet_name': selectedPet['name'],
+                              'user_id': userId,
+                            }),
+                          );
+
+                          print("Respuesta notificaciones: ${notifResponse.statusCode} - ${notifResponse.body}");
+
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text("¡Publicación creada y notificaciones enviadas!")),
+                          );
+                          await fetchData();
                         } catch (e) {
                           ScaffoldMessenger.of(context).showSnackBar(
                             SnackBar(content: Text("Error: ${e.toString()}")),
                           );
+                          print("Error completo: $e");
                         } finally {
                           setState(() {
                             isLoading = false;
