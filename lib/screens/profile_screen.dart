@@ -3,6 +3,7 @@ import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'dart:io';
 import 'package:image_picker/image_picker.dart';
+import 'package:miauuic/utils/user_posts_modal.dart';
 import 'package:provider/provider.dart';
 import '../services/theme_provider.dart';
 import 'custom_app_bar.dart';
@@ -328,7 +329,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       }
     } catch (e) {
       await removeToken();
-      Navigator.pushReplacementNamed(context, '/login');
+      Navigator.pushReplacementNamed(context, '/');
       rethrow;
     }
   }
@@ -404,7 +405,18 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   _buildButton(
                     context: context,
                     text: "Mis publicaciones",
-                    onPressed: () => Navigator.pushNamed(context, '/lost-pets'),
+                    onPressed: () {
+                      showModalBottomSheet(
+                        context: context,
+                        isScrollControlled: true,
+                        builder: (context) {
+                          return SizedBox(
+                            height: MediaQuery.of(context).size.height * 0.9,
+                            child: const UserPostsModal(),
+                          );
+                        },
+                      );
+                    },
                   ),
                   _buildButton(
                     context: context,
