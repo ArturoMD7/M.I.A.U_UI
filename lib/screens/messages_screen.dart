@@ -5,6 +5,11 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'chat_screen.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 
+const Color primaryColor = Color(0xFFD68F5E);
+const Color backgroundColor = Colors.white;
+const Color textColor = Colors.black;
+const Color accentColor = Colors.blue;
+
 class MessagesScreen extends StatefulWidget {
   final int? initialRecipientId;
   final String? initialRecipientName;
@@ -24,7 +29,7 @@ class _MessagesScreenState extends State<MessagesScreen> {
   bool isLoading = true;
   bool isCreatingChat = false;
   late SharedPreferences prefs;
-    late final String apiUrl;
+  late final String apiUrl;
   late final String baseUrl;
 
   @override
@@ -34,7 +39,6 @@ class _MessagesScreenState extends State<MessagesScreen> {
     baseUrl = apiUrl;
     _initPrefs();
   }
-
 
   Future<void> _initPrefs() async {
     prefs = await SharedPreferences.getInstance();
@@ -136,23 +140,90 @@ class _MessagesScreenState extends State<MessagesScreen> {
   @override
   Widget build(BuildContext context) {
     if (isCreatingChat) {
-      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+      return Scaffold(
+        backgroundColor: backgroundColor,
+        body: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              CircularProgressIndicator(
+                valueColor: AlwaysStoppedAnimation<Color>(primaryColor),
+              ),
+              const SizedBox(height: 16),
+              Text(
+                'Creando chat...',
+                style: TextStyle(
+                  color: textColor,
+                  fontSize: 16,
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
     }
 
     return Scaffold(
+      backgroundColor: backgroundColor,
       appBar: AppBar(
-        title: const Text('Mensajes'),
+        title: Text(
+          'Mensajes',
+          style: TextStyle(
+            color: Colors.white,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        backgroundColor: primaryColor,
+        elevation: 4,
         actions: [
-          IconButton(icon: const Icon(Icons.refresh), onPressed: fetchChats),
+          IconButton(
+            icon: Icon(Icons.refresh, color: Colors.white),
+            onPressed: fetchChats,
+            tooltip: 'Actualizar conversaciones',
+          ),
         ],
       ),
-      body:
-      isLoading
-          ? const Center(child: CircularProgressIndicator())
+      body: isLoading
+          ? Center(
+        child: CircularProgressIndicator(
+          valueColor: AlwaysStoppedAnimation<Color>(primaryColor),
+        ),
+      )
           : chats.isEmpty
-          ? const Center(child: Text('No tienes conversaciones'))
-          : ListView.builder(
+          ? Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              Icons.forum_outlined,
+              size: 64,
+              color: Colors.grey[400],
+            ),
+            const SizedBox(height: 16),
+            Text(
+              'No tienes conversaciones',
+              style: TextStyle(
+                color: Colors.grey[600],
+                fontSize: 18,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Inicia una nueva conversación',
+              style: TextStyle(
+                color: Colors.grey[500],
+                fontSize: 14,
+              ),
+            ),
+          ],
+        ),
+      )
+          : ListView.separated(
         itemCount: chats.length,
+        separatorBuilder: (context, index) => Divider(
+          height: 1,
+          color: Colors.grey[200],
+        ),
         itemBuilder: (context, index) {
           final chat = chats[index];
           final currentUserId = prefs.getInt('user_id');
@@ -163,64 +234,105 @@ class _MessagesScreenState extends State<MessagesScreen> {
 
           if (otherUser == null) return const SizedBox();
 
-          return ListTile(
-            leading:
-            otherUser['profilePhoto'] != null
-                ? ClipOval(
-              child: Image.network(
-                "$baseUrl${otherUser['profilePhoto']}",
-                width: 40,
-                height: 40,
-                fit: BoxFit.cover,
-                errorBuilder: (context, error, stackTrace) {
-                  return Container(
-                    width: 40,
-                    height: 40,
-                    color: Colors.grey[300],
-                    child: const Icon(Icons.person),
-                  );
-                },
+          final hasUnread = chat['unread_count'] > 0;
+
+          return Container(
+            color: hasUnread
+                ? primaryColor.withOpacity(0.05)
+                : backgroundColor,
+            child: ListTile(
+              contentPadding: const EdgeInsets.symmetric(
+                horizontal: 16,
+                vertical: 8,
               ),
-            )
-                : CircleAvatar(
-              backgroundColor: Colors.grey[300],
-              child: const Icon(Icons.person),
-            ),
-            title: Text(
-              '${otherUser['name']} ${otherUser['first_name']}',
-            ),
-            subtitle: Text(
-              chat['last_message']?['content'] ?? 'No hay mensajes',
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            ),
-            trailing:
-            chat['unread_count'] > 0
-                ? CircleAvatar(
-              radius: 12,
-              backgroundColor: Colors.red,
-              child: Text(
-                chat['unread_count'].toString(),
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 12,
+              leading: otherUser['profilePhoto'] != null
+                  ? ClipOval(
+                child: Image.network(
+                  "$baseUrl${otherUser['profilePhoto']}",
+                  width: 50,
+                  height: 50,
+                  fit: BoxFit.cover,
+                  errorBuilder: (context, error, stackTrace) {
+                    return Container(
+                      width: 50,
+                      height: 50,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: Colors.grey[200],
+                      ),
+                      child: Icon(
+                        Icons.person,
+                        color: Colors.grey[500],
+                      ),
+                    );
+                  },
+                ),
+              )
+                  : Container(
+                width: 50,
+                height: 50,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: Colors.grey[200],
+                ),
+                child: Icon(
+                  Icons.person,
+                  color: Colors.grey[500],
                 ),
               ),
-            )
-                : null,
-            onTap: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder:
-                      (context) => ChatScreen(
-                    chatId: chat['id'],
-                    recipientName:
-                    '${otherUser['name']} ${otherUser['first_name']}',
+              title: Text(
+                '${otherUser['name']} ${otherUser['first_name']}',
+                style: TextStyle(
+                  color: textColor,
+                  fontWeight: hasUnread
+                      ? FontWeight.bold
+                      : FontWeight.normal,
+                ),
+              ),
+              subtitle: Text(
+                chat['last_message']?['content'] ?? 'No hay mensajes',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  color: hasUnread ? textColor : Colors.grey[600],
+                  fontWeight: hasUnread
+                      ? FontWeight.w500
+                      : FontWeight.normal,
+                ),
+              ),
+              trailing: hasUnread
+                  ? Container(
+                width: 24,
+                height: 24,
+                decoration: BoxDecoration(
+                  color: primaryColor,
+                  shape: BoxShape.circle,
+                ),
+                child: Center(
+                  child: Text(
+                    chat['unread_count'].toString(),
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                 ),
-              ).then((_) => fetchChats());
-            },
+              )
+                  : null,
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => ChatScreen(
+                      chatId: chat['id'],
+                      recipientName:
+                      '${otherUser['name']} ${otherUser['first_name']}',
+                    ),
+                  ),
+                ).then((_) => fetchChats());
+              },
+            ),
           );
         },
       ),
