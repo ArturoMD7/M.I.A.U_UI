@@ -133,25 +133,27 @@ class PostWidget extends StatelessWidget {
           // Post images
           if (postImages.isNotEmpty)
             SizedBox(
-              height: 200,
+              height: MediaQuery.of(context).size.width * 0.8, // Altura proporcional
               child: ListView.builder(
                 scrollDirection: Axis.horizontal,
                 itemCount: postImages.length,
                 itemBuilder: (context, index) {
                   final imageUrl = _getImageUrl(postImages[index]['imgURL']);
                   return Padding(
-                    padding: const EdgeInsets.only(left: 8, right: 8, bottom: 8),
+                    padding: const EdgeInsets.symmetric(horizontal: 8),
                     child: ClipRRect(
                       borderRadius: BorderRadius.circular(8),
                       child: CachedNetworkImage(
                         imageUrl: imageUrl,
-                        width: 200,
+                        width: MediaQuery.of(context).size.width - 64, // Ancho casi completo
                         fit: BoxFit.cover,
                         placeholder: (context, url) => Container(
+                          width: MediaQuery.of(context).size.width - 64,
                           color: Colors.grey[200],
                           child: const Center(child: CircularProgressIndicator()),
                         ),
                         errorWidget: (context, url, error) => Container(
+                          width: MediaQuery.of(context).size.width - 64,
                           color: Colors.grey[200],
                           child: const Icon(Icons.error),
                         ),

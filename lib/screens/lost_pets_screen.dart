@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
@@ -32,6 +33,7 @@ class _LostPetsScreenState extends State<LostPetsScreen> {
   late String baseUrl;
   late String mediaUrl;
   final ScrollController _scrollController = ScrollController();
+  bool _showFab = true; // Controla la visibilidad del FAB
 
   // Variables para ubicación
   List<String> estados = [];
@@ -49,7 +51,23 @@ class _LostPetsScreenState extends State<LostPetsScreen> {
     apiUrl = dotenv.env['API_URL'] ?? 'http://192.168.1.133:8000/api';
     baseUrl = apiUrl;
     mediaUrl = dotenv.env['MEDIA_URL'] ?? 'http://192.168.1.133:8000';
+
+    // Configurar el listener para el scroll
+    _scrollController.addListener(() {
+      if (_scrollController.position.userScrollDirection == ScrollDirection.reverse) {
+        if (_showFab) setState(() => _showFab = false);
+      } else if (_scrollController.position.userScrollDirection == ScrollDirection.forward) {
+        if (!_showFab) setState(() => _showFab = true);
+      }
+    });
+
     _initializeData();
+  }
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
   }
 
   Future<void> _initializeData() async {
@@ -63,12 +81,6 @@ class _LostPetsScreenState extends State<LostPetsScreen> {
     setState(() {
       currentUserState = prefs.getString('user_state');
     });
-  }
-
-  @override
-  void dispose() {
-    _scrollController.dispose();
-    super.dispose();
   }
 
   Future<void> _loadEstados() async {
@@ -149,8 +161,8 @@ class _LostPetsScreenState extends State<LostPetsScreen> {
       if (estadosData is Map && estadosData['estados'] is List) {
         final listaEstados = estadosData['estados'] as List;
         final estadoEncontrado = listaEstados.firstWhere(
-          (estado) => estado is Map && 
-                     estado['ESTADO']?.toString().toUpperCase() == estadoNombre.toUpperCase(),
+              (estado) => estado is Map &&
+              estado['ESTADO']?.toString().toUpperCase() == estadoNombre.toUpperCase(),
           orElse: () => null,
         );
 
@@ -174,17 +186,17 @@ class _LostPetsScreenState extends State<LostPetsScreen> {
       }
 
       final municipiosData = jsonDecode(municipiosResponse.body);
-      
+
       if (municipiosData['error'] == false && municipiosData['municipios'] is List) {
         final listaMunicipios = municipiosData['municipios'] as List;
-        
+
         final municipiosTemp = listaMunicipios.map<String>((item) {
           if (item is Map && item['MUNICIPIO'] != null) {
             return item['MUNICIPIO'].toString();
           }
           return '';
         }).where((m) => m.isNotEmpty).toList();
-        
+
         municipiosTemp.sort();
 
         _dialogSetState(() {
@@ -206,7 +218,7 @@ class _LostPetsScreenState extends State<LostPetsScreen> {
 
   Future<void> fetchData() async {
     if (!mounted) return;
-    
+
     setState(() {
       isLoading = true;
       errorMessage = '';
@@ -250,7 +262,7 @@ class _LostPetsScreenState extends State<LostPetsScreen> {
           petsResponse.statusCode == 200 &&
           imgsResponse.statusCode == 200 &&
           usersResponse.statusCode == 200) {
-        
+
         final List<dynamic> postsData = jsonDecode(postsResponse.body);
         final List<dynamic> petsData = jsonDecode(petsResponse.body);
         final List<dynamic> imgsData = jsonDecode(imgsResponse.body);
@@ -259,18 +271,18 @@ class _LostPetsScreenState extends State<LostPetsScreen> {
         final processedPosts = postsData.map((post) {
           final petId = post['petId'];
           final pet = petsData.firstWhere(
-            (pet) => pet['id'] == petId,
+                (pet) => pet['id'] == petId,
             orElse: () => null,
           );
-          
+
           final postImages = imgsData.where((img) => img['idPost'] == post['id']).toList();
-          
+
           final userId = post['userId'];
           final user = usersData.firstWhere(
-            (user) => user['id'] == userId,
+                (user) => user['id'] == userId,
             orElse: () => null,
           );
-          
+
           return {
             ...post,
             'pet': pet,
@@ -323,9 +335,9 @@ class _LostPetsScreenState extends State<LostPetsScreen> {
 
       if (response.statusCode == 200) {
         final List<dynamic> userPets = jsonDecode(response.body);
-        
+
         final availablePets = userPets.where((pet) => pet['status'] == 0).toList();
-        
+
         if (availablePets.isEmpty) {
           await showDialog(
             context: context,
@@ -365,7 +377,7 @@ class _LostPetsScreenState extends State<LostPetsScreen> {
             return StatefulBuilder(
               builder: (context, dialogSetState) {
                 _dialogSetState = dialogSetState;
-                
+
                 return AlertDialog(
                   title: const Text("Reportar mascota perdida"),
                   content: SingleChildScrollView(
@@ -396,31 +408,31 @@ class _LostPetsScreenState extends State<LostPetsScreen> {
                           onChanged: (value) => dialogSetState(() => selectedPetId = value),
                         ),
                         const SizedBox(height: 20),
-                        
+
                         DropdownButtonFormField<String>(
                           value: selectedEstado,
-                          hint: loadingEstados 
+                          hint: loadingEstados
                               ? const Text("Cargando...")
                               : const Text("Selecciona estado"),
                           items: loadingEstados
                               ? []
                               : estados.map((estado) {
-                                  return DropdownMenuItem<String>(
-                                    value: estado,
-                                    child: Text(estado),
-                                  );
-                                }).toList(),
+                            return DropdownMenuItem<String>(
+                              value: estado,
+                              child: Text(estado),
+                            );
+                          }).toList(),
                           onChanged: loadingEstados
                               ? null
                               : (value) {
-                                  dialogSetState(() {
-                                    selectedEstado = value;
-                                    selectedMunicipio = null;
-                                    if (value != null) {
-                                      _loadMunicipios(value);
-                                    }
-                                  });
-                                },
+                            dialogSetState(() {
+                              selectedEstado = value;
+                              selectedMunicipio = null;
+                              if (value != null) {
+                                _loadMunicipios(value);
+                              }
+                            });
+                          },
                         ),
 
                         const SizedBox(height: 10),
@@ -434,18 +446,18 @@ class _LostPetsScreenState extends State<LostPetsScreen> {
                             items: loadingMunicipios || municipios.isEmpty
                                 ? []
                                 : municipios.map((String value) {
-                                    return DropdownMenuItem<String>(
-                                      value: value,
-                                      child: Text(value),
-                                    );
-                                  }).toList(),
+                              return DropdownMenuItem<String>(
+                                value: value,
+                                child: Text(value),
+                              );
+                            }).toList(),
                             onChanged: loadingMunicipios || municipios.isEmpty
                                 ? null
                                 : (newValue) {
-                                    dialogSetState(() {
-                                      selectedMunicipio = newValue;
-                                    });
-                                  },
+                              dialogSetState(() {
+                                selectedMunicipio = newValue;
+                              });
+                            },
                           ),
 
                         const SizedBox(height: 20),
@@ -486,7 +498,7 @@ class _LostPetsScreenState extends State<LostPetsScreen> {
                     ),
                     ElevatedButton(
                       onPressed: () async {
-                        if (selectedPetId == null || 
+                        if (selectedPetId == null ||
                             descriptionController.text.isEmpty ||
                             selectedEstado == null ||
                             selectedMunicipio == null) {
@@ -501,7 +513,7 @@ class _LostPetsScreenState extends State<LostPetsScreen> {
 
                         try {
                           final selectedPet = userPets.firstWhere(
-                            (pet) => pet['id'].toString() == selectedPetId,
+                                (pet) => pet['id'].toString() == selectedPetId,
                           );
 
                           final petUpdateData = {
@@ -551,8 +563,8 @@ class _LostPetsScreenState extends State<LostPetsScreen> {
 
                           if (selectedImage != null) {
                             final request = http.MultipartRequest(
-                              "POST", 
-                              Uri.parse("$baseUrl/imgs-post/")
+                                "POST",
+                                Uri.parse("$baseUrl/imgs-post/")
                             )
                               ..headers['Authorization'] = 'Bearer $token'
                               ..fields['idPost'] = postId.toString()
@@ -648,81 +660,82 @@ class _LostPetsScreenState extends State<LostPetsScreen> {
     }
   }
 
- Widget _buildPostCard(dynamic post) {
-  final pet = post['pet'];
-  final images = post['images'] as List<dynamic>;
-  final user = post['user'] as Map<String, dynamic>? ?? {};
+  Widget _buildPostCard(dynamic post) {
+    final pet = post['pet'];
+    final images = post['images'] as List<dynamic>;
+    final user = post['user'] as Map<String, dynamic>? ?? {};
 
-  return FutureBuilder<SharedPreferences>(
-    future: SharedPreferences.getInstance(),
-    builder: (context, snapshot) {
-      if (!snapshot.hasData) return const SizedBox();
-      
-      final currentUserId = snapshot.data!.getInt('user_id');
-      
-      return PostWidget(
-        post: {
-          ...post,
-          'user_name': user['name'],
-          'user_first_name': user['first_name'],
-          'user_profile_photo': user['profilePhoto'],
-          'created_at': post['postDate'],
-        },
-        onDelete: user['id'] == currentUserId
-            ? () async {
-                final confirmed = await showDialog(
-                  context: context,
-                  builder: (context) => AlertDialog(
-                    title: const Text("Eliminar publicación"),
-                    content: const Text("¿Estás seguro de que quieres eliminar esta publicación?"),
-                    actions: [
-                      TextButton(
-                        onPressed: () => Navigator.pop(context, false),
-                        child: const Text("Cancelar"),
-                      ),
-                      TextButton(
-                        onPressed: () => Navigator.pop(context, true),
-                        child: const Text("Eliminar", style: TextStyle(color: Colors.red)),
-                      ),
-                    ],
+    return FutureBuilder<SharedPreferences>(
+      future: SharedPreferences.getInstance(),
+      builder: (context, snapshot) {
+        if (!snapshot.hasData) return const SizedBox();
+
+        final currentUserId = snapshot.data!.getInt('user_id');
+
+        return PostWidget(
+          post: {
+            ...post,
+            'user_name': user['name'],
+            'user_first_name': user['first_name'],
+            'user_profile_photo': user['profilePhoto'],
+            'created_at': post['postDate'],
+          },
+          onDelete: user['id'] == currentUserId
+              ? () async {
+            final confirmed = await showDialog(
+              context: context,
+              builder: (context) => AlertDialog(
+                title: const Text("Eliminar publicación"),
+                content: const Text("¿Estás seguro de que quieres eliminar esta publicación?"),
+                actions: [
+                  TextButton(
+                    onPressed: () => Navigator.pop(context, false),
+                    child: const Text("Cancelar"),
                   ),
-                );
-                
-                if (confirmed == true) {
-                  await _deletePost(post['id']);
-                }
-              }
-            : null,
-        onComment: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) => CommentScreen(postId: post['id']),
-            ),
-          );
-        },
-        onMessage: () async {
-          final prefs = await SharedPreferences.getInstance();
-          if (prefs.getInt('user_id') == null || prefs.getString('jwt_token') == null) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text("Debes iniciar sesión")),
-            );
-            return;
-          }
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) => MessagesScreen(
-                initialRecipientId: user['id'],
-                initialRecipientName: user['name'] ?? 'Usuario',
+                  TextButton(
+                    onPressed: () => Navigator.pop(context, true),
+                    child: const Text("Eliminar", style: TextStyle(color: Colors.red)),
+                  ),
+                ],
               ),
-            ),
-          );
-        },
-      );
-    },
-  );
-}
+            );
+
+            if (confirmed == true) {
+              await _deletePost(post['id']);
+            }
+          }
+              : null,
+          onComment: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => CommentScreen(postId: post['id']),
+              ),
+            );
+          },
+          onMessage: () async {
+            final prefs = await SharedPreferences.getInstance();
+            if (prefs.getInt('user_id') == null || prefs.getString('jwt_token') == null) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text("Debes iniciar sesión")),
+              );
+              return;
+            }
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => MessagesScreen(
+                  initialRecipientId: user['id'],
+                  initialRecipientName: user['name'] ?? 'Usuario',
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -747,29 +760,31 @@ class _LostPetsScreenState extends State<LostPetsScreen> {
             child: isLoading
                 ? const Center(child: CircularProgressIndicator())
                 : posts.isEmpty
-                    ? Center(
-                        child: Text(
-                          errorMessage.isEmpty ? "No hay mascotas perdidas reportadas" : errorMessage,
-                          style: const TextStyle(fontSize: 18),
-                        ),
-                      )
-                    : RefreshIndicator(
-                        onRefresh: fetchData,
-                        child: ListView.builder(
-                          controller: _scrollController,
-                          padding: const EdgeInsets.all(10),
-                          itemCount: posts.length,
-                          itemBuilder: (context, index) => _buildPostCard(posts[index]),
-                        ),
-                      ),
+                ? Center(
+              child: Text(
+                errorMessage.isEmpty ? "No hay mascotas perdidas reportadas" : errorMessage,
+                style: const TextStyle(fontSize: 18),
+              ),
+            )
+                : RefreshIndicator(
+              onRefresh: fetchData,
+              child: ListView.builder(
+                controller: _scrollController,
+                padding: const EdgeInsets.all(10),
+                itemCount: posts.length,
+                itemBuilder: (context, index) => _buildPostCard(posts[index]),
+              ),
+            ),
           ),
         ],
       ),
-      floatingActionButton: FloatingActionButton.extended(
+      floatingActionButton: _showFab
+          ? FloatingActionButton.extended(
         onPressed: _createLostPetPost,
         label: const Text("Reportar mascota perdida"),
         icon: const Icon(Icons.add),
-      ),
+      )
+          : null,
     );
   }
 }

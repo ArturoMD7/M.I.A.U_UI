@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:http/http.dart' as http;
 import 'package:miauuic/screens/add_pet_screen.dart';
@@ -10,6 +11,7 @@ import 'custom_app_bar.dart';
 import 'messages_screen.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'comment_screen.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 
 class AdoptScreen extends StatefulWidget {
   final int? initialPostId;
@@ -45,13 +47,26 @@ class _AdoptScreenState extends State<AdoptScreen> {
   late final String baseUrl;
   late final String mediaUrl;
 
+  final ScrollController _scrollController = ScrollController();
+  bool _showFab = true; // Controla la visibilidad del FAB
+
   @override
   void initState() {
     super.initState();
     apiUrl = dotenv.env['API_URL'] ?? 'http://192.168.1.133:8000/api';
     baseUrl = apiUrl;
     mediaUrl = dotenv.env['MEDIA_URL'] ?? 'http://192.168.1.133:8000';
+
+    _scrollController.addListener(() {
+      if (_scrollController.position.userScrollDirection == ScrollDirection.reverse) {
+        if (_showFab) setState(() => _showFab = false);
+      } else if (_scrollController.position.userScrollDirection == ScrollDirection.forward) {
+        if (!_showFab) setState(() => _showFab = true);
+      }
+    });
+
     _initializeData();
+
   }
 
   Future<void> _initializeData() async {
@@ -744,138 +759,170 @@ class _AdoptScreenState extends State<AdoptScreen> {
     return FutureBuilder<SharedPreferences>(
       future: SharedPreferences.getInstance(),
       builder: (context, snapshot) {
-        if (!snapshot.hasData) {
-          return const SizedBox(); // O algún widget de carga
-        }
-        
+        if (!snapshot.hasData) return const SizedBox();
+
         final currentUserId = snapshot.data!.getInt('user_id');
-        
+
         return Card(
+          margin: const EdgeInsets.symmetric(vertical: 10, horizontal: 16),
           elevation: 3,
-          margin: const EdgeInsets.symmetric(vertical: 10),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              // Header with user info
               Padding(
-                padding: const EdgeInsets.all(10),
+                padding: const EdgeInsets.all(12),
                 child: Row(
                   children: [
                     CircleAvatar(
-                      backgroundImage: user != null && user['profilePhoto'] != null
-                          ? NetworkImage("$mediaUrl${user['profilePhoto']}")
-                          : const AssetImage("assets/images/default_profile.jpg") as ImageProvider,
                       radius: 20,
+                      backgroundImage: user != null && user['profilePhoto'] != null
+                          ? CachedNetworkImageProvider(
+                        "$mediaUrl${user['profilePhoto']}",
+                        headers: const {"Cache-Control": "no-cache"},
+                      )
+                          : const AssetImage("assets/images/default_profile.jpg") as ImageProvider,
                     ),
                     const SizedBox(width: 10),
-                    Text(
-                      user != null ? "${user['name']} ${user['first_name']}" : "Usuario desconocido",
-                      style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            user != null ? "${user['name']} ${user['first_name']}" : "Usuario",
+                            style: const TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 16,
+                            ),
+                          ),
+                          if (post['postDate'] != null)
+                            Text(
+                              DateFormat('dd MMM yyyy, hh:mm a').format(DateTime.parse(post['postDate'])),
+                              style: const TextStyle(
+                                color: Colors.grey,
+                                fontSize: 12,
+                              ),
+                            ),
+                        ],
+                      ),
                     ),
+                    if (user != null && user['id'] == currentUserId)
+                      IconButton(
+                        icon: const Icon(Icons.delete, color: Colors.red),
+                        onPressed: () => _deletePost(post['id']),
+                      ),
                   ],
                 ),
               ),
-              if (images.isNotEmpty)
-                SizedBox(
-                  height: 200,
-                  child: ListView.builder(
-                    scrollDirection: Axis.horizontal,
-                    itemCount: images.length,
-                    itemBuilder: (context, imgIndex) {
-                      return Image.network(
-                        "$mediaUrl${images[imgIndex]['imgURL']}",
-                        fit: BoxFit.cover,
-                        width: MediaQuery.of(context).size.width,
-                        errorBuilder: (context, error, stackTrace) {
-                          return Container(
-                            color: Colors.grey[300],
-                            child: const Center(child: Icon(Icons.error, color: Colors.red)),
-                          );
-                        },
-                      );
-                    },
+
+              // Post content
+              if (post['description'] != null && post['description'].isNotEmpty)
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                  child: Text(post['description']),
+                ),
+
+              // Pet info
+              if (pet != null)
+                Padding(
+                  padding: const EdgeInsets.all(12),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Divider(),
+                      Text(
+                        'Mascota: ${pet['name'] ?? 'No especificado'}',
+                        style: const TextStyle(fontWeight: FontWeight.bold),
+                      ),
+                      const SizedBox(height: 4),
+                      Text('Edad: ${pet['age'] ?? 'Desconocida'}'),
+                      Text('Raza: ${pet['breed'] ?? 'Desconocida'}'),
+                      Text('Tamaño: ${pet['size'] ?? 'Desconocido'}'),
+                      if (post['city'] != null || post['state'] != null)
+                        Text(
+                          'Ubicación: ${post['city'] ?? ''}, ${post['state'] ?? ''}',
+                          style: const TextStyle(fontStyle: FontStyle.italic),
+                        ),
+                    ],
                   ),
                 ),
+
+              // Post images - Esta es la parte clave que cambiamos
+              if (images.isNotEmpty)
+                Column(
+                  children: images.map((image) {
+                    final imageUrl = "$mediaUrl${image['imgURL']}";
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: 8),
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(8),
+                        child: CachedNetworkImage(
+                          imageUrl: imageUrl,
+                          width: MediaQuery.of(context).size.width - 32,
+                          height: MediaQuery.of(context).size.width * 0.8,
+                          fit: BoxFit.cover,
+                          placeholder: (context, url) => Container(
+                            color: Colors.grey[200],
+                            width: MediaQuery.of(context).size.width - 32,
+                            height: MediaQuery.of(context).size.width * 0.8,
+                            child: const Center(child: CircularProgressIndicator()),
+                          ),
+                          errorWidget: (context, url, error) => Container(
+                            color: Colors.grey[200],
+                            width: MediaQuery.of(context).size.width - 32,
+                            height: MediaQuery.of(context).size.width * 0.8,
+                            child: const Icon(Icons.error),
+                          ),
+                        ),
+                      ),
+                    );
+                  }).toList(),
+                ),
+
+              // Action buttons
               Padding(
-                padding: const EdgeInsets.all(10),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text(
-                      pet['name'] ?? "Nombre no disponible",
-                      style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                    TextButton.icon(
+                      icon: const Icon(Icons.comment, color: Colors.blue),
+                      label: const Text('Comentar'),
+                      onPressed: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => CommentScreen(postId: post['id']),
+                          ),
+                        );
+                      },
                     ),
-                    const SizedBox(height: 5),
-                    Text("Edad: ${pet['age'] ?? "Desconocida"}", style: const TextStyle(fontSize: 14)),
-                    const SizedBox(height: 5),
-                    Text("Raza: ${pet['breed'] ?? "Desconocida"}", style: const TextStyle(fontSize: 14)),
-                    const SizedBox(height: 5),
-                    Text("Tamaño: ${pet['size'] ?? "Desconocido"}", style: const TextStyle(fontSize: 14)),
-                    const SizedBox(height: 5),
-                    Text(
-                      "Ubicación: ${post['city'] ?? "Ciudad desconocida"}, ${post['state'] ?? "Estado desconocido"}",
-                      style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
-                    ),
-                    const SizedBox(height: 5),
-                    Text(
-                      "Descripción: ${post['description'] ?? "Sin detalles adicionales"}",
-                      style: const TextStyle(fontSize: 14),
-                    ),
-                    const SizedBox(height: 10),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        TextButton.icon(
-                          icon: const Icon(Icons.comment, color: Colors.blue),
-                          label: const Text("Comentar"),
-                          onPressed: () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (context) => CommentScreen(postId: post['id']),
-                              ),
-                            );
-                          },
-                        ),
-                        TextButton.icon(
-                          icon: const Icon(Icons.message, color: Colors.green),
-                          label: const Text("Enviar mensaje"),
-                          onPressed: () async {
-                            final prefs = await SharedPreferences.getInstance();
-                            if (prefs.getInt('user_id') == null || prefs.getString('jwt_token') == null) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(content: Text("Debes iniciar sesión")),
-                              );
-                              return;
-                            }
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (context) => MessagesScreen(
-                                  initialRecipientId: user['id'],
-                                  initialRecipientName: user['name'] ?? 'Usuario',
-                                ),
-                              ),
-                            );
-                          },
-                        ),
-                      ],
+                    TextButton.icon(
+                      icon: const Icon(Icons.message, color: Colors.green),
+                      label: const Text('Mensaje'),
+                      onPressed: () async {
+                        final prefs = await SharedPreferences.getInstance();
+                        if (prefs.getInt('user_id') == null || prefs.getString('jwt_token') == null) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text("Debes iniciar sesión")),
+                          );
+                          return;
+                        }
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => MessagesScreen(
+                              initialRecipientId: user['id'],
+                              initialRecipientName: user['name'] ?? 'Usuario',
+                            ),
+                          ),
+                        );
+                      },
                     ),
                     if (user != null && user['id'] == currentUserId)
-                      Padding(
-                        padding: const EdgeInsets.only(top: 10),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.end,
-                          children: [
-                            IconButton(
-                              icon: const Icon(Icons.edit, color: Colors.blue),
-                              onPressed: () => _editPost(post['id'], post['description']),
-                            ),
-                            IconButton(
-                              icon: const Icon(Icons.delete, color: Colors.red),
-                              onPressed: () => _deletePost(post['id']),
-                            ),
-                          ],
-                        ),
+                      IconButton(
+                        icon: const Icon(Icons.edit, color: Colors.blue),
+                        onPressed: () => _editPost(post['id'], post['description']),
                       ),
                   ],
                 ),
@@ -978,28 +1025,31 @@ class _AdoptScreenState extends State<AdoptScreen> {
             child: isLoading
                 ? const Center(child: CircularProgressIndicator())
                 : posts.isEmpty
-                    ? Center(
-                        child: Text(
-                          errorMessage.isEmpty ? "No hay mascotas que coincidan con los filtros" : errorMessage,
-                          style: const TextStyle(fontSize: 18),
-                        ),
-                      )
-                    : RefreshIndicator(
-                        onRefresh: fetchData,
-                        child: ListView.builder(
-                          padding: const EdgeInsets.all(10),
-                          itemCount: posts.length,
-                          itemBuilder: (context, index) => _buildPostCard(posts[index]),
-                        ),
-                      ),
+                ? Center(
+              child: Text(
+                errorMessage.isEmpty ? "No hay mascotas que coincidan con los filtros" : errorMessage,
+                style: const TextStyle(fontSize: 18),
+              ),
+            )
+                : RefreshIndicator(
+              onRefresh: fetchData,
+              child: ListView.builder(
+                controller: _scrollController, // Añade el controller aquí
+                padding: const EdgeInsets.all(10),
+                itemCount: posts.length,
+                itemBuilder: (context, index) => _buildPostCard(posts[index]),
+              ),
+            ),
           ),
         ],
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: _createPostWithExistingPet,
-        label: const Text("Publicar mascota"),
-        icon: const Icon(Icons.add),
-      ),
+        floatingActionButton: _showFab
+            ? FloatingActionButton.extended(
+          onPressed: _createPostWithExistingPet,
+          label: const Text("Publicar mascota"),
+          icon: const Icon(Icons.add),
+        )
+            : null,
     );
   }
 }
