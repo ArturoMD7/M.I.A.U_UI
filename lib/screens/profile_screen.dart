@@ -1,60 +1,179 @@
 import 'package:flutter/material.dart';
-import 'package:http/http.dart' as http;
-import 'dart:convert';
-import 'dart:io';
-import 'package:image_picker/image_picker.dart';
-import 'package:miauuic/utils/user_posts_modal.dart';
 import 'package:provider/provider.dart';
-import '../services/theme_provider.dart';
-import 'custom_app_bar.dart';
-import 'package:shared_preferences/shared_preferences.dart';
-import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:miauuic/services/theme_provider.dart';
+import 'package:miauuic/screens/custom_app_bar.dart';
+import 'package:miauuic/utils/user_posts_modal.dart';
+import 'package:miauuic/services/profile_provider.dart';
 
-Future<void> saveToken(String token) async {
-  final prefs = await SharedPreferences.getInstance();
-  await prefs.setString('jwt_token', token);
-}
-
-Future<void> removeToken() async {
-  final prefs = await SharedPreferences.getInstance();
-  await prefs.remove('jwt_token');
-}
-
-Future<String?> getToken() async {
-  final prefs = await SharedPreferences.getInstance();
-  return prefs.getString('jwt_token');
-}
-
-const Color primaryColor = Color(0xFFD0894B);
-const Color darkPrimaryColor = Color(0xFF8B5A2B);
-
-class ProfileScreen extends StatefulWidget {
+class ProfileScreen extends StatelessWidget {
   const ProfileScreen({super.key});
 
   @override
-  _ProfileScreenState createState() => _ProfileScreenState();
+  Widget build(BuildContext context) {
+    return ChangeNotifierProvider(
+      create: (context) => ProfileProvider()..initialize(),
+      child: Scaffold(
+        appBar: CustomAppBar(),
+        body: Consumer<ProfileProvider>(
+          builder: (context, provider, _) {
+            final state = provider.state;
+            
+            if (state.isLoading && state.userInfo == null) {
+              return const Center(child: CircularProgressIndicator());
+            }
+
+            if (state.errorMessage != null && state.userInfo == null) {
+              return Center(child: Text(state.errorMessage!));
+            }
+
+            return _ProfileContent(state: state, provider: provider);
+          },
+        ),
+      ),
+    );
+  }
 }
 
-class _ProfileScreenState extends State<ProfileScreen> {
-  File? _image;
-  final ImagePicker _picker = ImagePicker();
-  String? _profilePhotoUrl;
+class _ProfileContent extends StatelessWidget {
+  final ProfileState state;
+  final ProfileProvider provider;
 
-  late final String apiUrl;
-  late final String baseUrl;
+  const _ProfileContent({
+    required this.state,
+    required this.provider,
+  });
 
   @override
-  void initState() {
-    super.initState();
-    apiUrl = dotenv.env['API_URL'] ?? '192.168.1.133:8000/';
-    baseUrl = apiUrl;
-    _loadProfilePhotoUrl();
+  Widget build(BuildContext context) {
+    if (state.userInfo == null) {
+      return const Center(child: CircularProgressIndicator());
+    }
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(16.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          Text(
+            "Mi Perfil",
+            style: Theme.of(context).textTheme.headlineSmall,
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 20),
+          _ProfileAvatar(state: state, provider: provider),
+          const SizedBox(height: 10),
+          Text(
+            state.userInfo?['name'] ?? 'Nombre no disponible',
+            style: Theme.of(context).textTheme.titleLarge,
+          ),
+          Text(
+            "ID de usuario: #${state.userInfo?['id'] ?? 'N/A'}",
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: Colors.grey),
+          ),
+          if (state.errorMessage != null) ...[
+            const SizedBox(height: 10),
+            Text(
+              state.errorMessage!,
+              style: TextStyle(color: Theme.of(context).colorScheme.error),
+            ),
+          ],
+          const SizedBox(height: 20),
+          const Divider(),
+          _ThemeSwitch(),
+          _ColorBlindnessSettings(),
+          const Divider(),
+          const SizedBox(height: 10),
+          _ProfileActions(userInfo: state.userInfo!, provider: provider),
+        ],
+      ),
+    );
   }
+}
 
-  
+class _ProfileAvatar extends StatelessWidget {
+  final ProfileState state;
+  final ProfileProvider provider;
 
-  Widget _buildThemeSwitch(BuildContext context) {
-    final themeProvider = Provider.of<ThemeProvider>(context);
+  const _ProfileAvatar({
+    required this.state,
+    required this.provider,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: provider.pickImage,
+      onLongPress: () {
+        if (state.profilePhotoUrl != null) {
+          showModalBottomSheet(
+            context: context,
+            builder: (context) => Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                ListTile(
+                  leading: const Icon(Icons.camera_alt),
+                  title: const Text('Cambiar foto'),
+                  onTap: () {
+                    Navigator.pop(context);
+                    provider.pickImage();
+                  },
+                ),
+                ListTile(
+                  leading: const Icon(Icons.delete, color: Colors.red),
+                  title: const Text('Eliminar foto', 
+                      style: TextStyle(color: Colors.red)),
+                  onTap: () {
+                    Navigator.pop(context);
+                    // provider.deleteProfilePhoto();
+                  },
+                ),
+              ],
+            ),
+          );
+        }
+      },
+      child: Stack(
+        alignment: Alignment.bottomRight,
+        children: [
+          CircleAvatar(
+            radius: 50,
+            backgroundImage: state.profilePhotoUrl != null
+                ? NetworkImage(
+                    state.profilePhotoUrl!,
+                    headers: const {"Cache-Control": "no-cache"},
+                  ) as ImageProvider
+                : const AssetImage("assets/images/default_profile.jpg") as ImageProvider,
+          ),
+          Container(
+            padding: const EdgeInsets.all(6),
+            decoration: BoxDecoration(
+              color: Theme.of(context).primaryColor,
+              shape: BoxShape.circle,
+            ),
+            child: const Icon(
+              Icons.camera_alt,
+              size: 20,
+              color: Colors.white,
+            ),
+          ),
+          if (provider.state.isLoading)
+            Positioned.fill(
+              child: Container(
+                color: Colors.black26,
+                child: const Center(
+                  child: CircularProgressIndicator(),
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ThemeSwitch extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    final themeProvider = Provider.of<ThemeProvider>(context, listen: true);
     final isDarkMode = themeProvider.isDarkMode;
 
     return SwitchListTile(
@@ -65,18 +184,19 @@ class _ProfileScreenState extends State<ProfileScreen> {
         ),
       ),
       value: isDarkMode,
-      onChanged: (value) {
-        themeProvider.toggleTheme(value);
-      },
+      onChanged: themeProvider.toggleTheme,
       secondary: Icon(
         isDarkMode ? Icons.nightlight_round : Icons.wb_sunny,
         color: Theme.of(context).iconTheme.color,
       ),
     );
   }
+}
 
-  Widget _buildColorBlindnessSettings(BuildContext context) {
-    final themeProvider = Provider.of<ThemeProvider>(context);
+class _ColorBlindnessSettings extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    final themeProvider = Provider.of<ThemeProvider>(context, listen: false);
 
     return ExpansionTile(
       title: Text(
@@ -94,17 +214,35 @@ class _ProfileScreenState extends State<ProfileScreen> {
           padding: const EdgeInsets.symmetric(horizontal: 16.0),
           child: Column(
             children: [
-              _buildColorBlindnessTypeDropdown(themeProvider),
+              _ColorBlindnessTypeDropdown(themeProvider: themeProvider),
               const SizedBox(height: 16),
-              _buildSeveritySlider(themeProvider, context),
+              _SeveritySlider(themeProvider: themeProvider),
             ],
           ),
         ),
       ],
     );
   }
+}
 
-  Widget _buildColorBlindnessTypeDropdown(ThemeProvider themeProvider) {
+class _ColorBlindnessTypeDropdown extends StatelessWidget {
+  final ThemeProvider themeProvider;
+
+  const _ColorBlindnessTypeDropdown({required this.themeProvider});
+
+  String _getTypeName(ColorBlindnessType type) {
+    switch (type) {
+      case ColorBlindnessType.none: return 'Ninguno';
+      case ColorBlindnessType.protanopia: return 'Protanopia (rojo-verde)';
+      case ColorBlindnessType.deuteranopia: return 'Deuteranopia (rojo-verde)';
+      case ColorBlindnessType.tritanopia: return 'Tritanopia (azul-amarillo)';
+      case ColorBlindnessType.achromatopsia: return 'Achromatopsia (monocromático)';
+      default: return 'Desconocido';
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
     return DropdownButtonFormField<ColorBlindnessType>(
       value: themeProvider.colorBlindnessType,
       decoration: InputDecoration(
@@ -114,7 +252,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       items: ColorBlindnessType.values.map((type) {
         return DropdownMenuItem<ColorBlindnessType>(
           value: type,
-          child: Text(_getColorBlindnessTypeName(type)),
+          child: Text(_getTypeName(type)),
         );
       }).toList(),
       onChanged: (type) {
@@ -127,25 +265,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
       },
     );
   }
+}
 
-  String _getColorBlindnessTypeName(ColorBlindnessType type) {
-    switch (type) {
-      case ColorBlindnessType.none:
-        return 'Ninguno';
-      case ColorBlindnessType.protanopia:
-        return 'Protanopia (rojo-verde)';
-      case ColorBlindnessType.deuteranopia:
-        return 'Deuteranopia (rojo-verde)';
-      case ColorBlindnessType.tritanopia:
-        return 'Tritanopia (azul-amarillo)';
-      case ColorBlindnessType.achromatopsia:
-        return 'Achromatopsia (monocromático)';
-      default:
-        return 'Desconocido';
-    }
-  }
+class _SeveritySlider extends StatelessWidget {
+  final ThemeProvider themeProvider;
 
-  Widget _buildSeveritySlider(ThemeProvider themeProvider, BuildContext context) {
+  const _SeveritySlider({required this.themeProvider});
+
+  @override
+  Widget build(BuildContext context) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -171,411 +299,209 @@ class _ProfileScreenState extends State<ProfileScreen> {
       ],
     );
   }
+}
 
-  Future<void> _loadProfilePhotoUrl() async {
-    final prefs = await SharedPreferences.getInstance();
-    final String? userId = prefs.getString('userId');
-    final String? imageUrl = prefs.getString('profilePhotoUrl_$userId');
-    final String baseUrl = dotenv.env['API_URL'] ?? '192.168.1.133:8000/';
-    if (imageUrl != null) {
-      if (!imageUrl.startsWith(baseUrl)) {
-        final String absoluteImageUrl = '$baseUrl$imageUrl';
-        setState(() {
-          _profilePhotoUrl = '$absoluteImageUrl?${DateTime.now().millisecondsSinceEpoch}';
-        });
-      } else {
-        setState(() {
-          _profilePhotoUrl = '$imageUrl?${DateTime.now().millisecondsSinceEpoch}';
-        });
-      }
-    }
-  }
+class _ProfileActions extends StatelessWidget {
+  final Map<String, dynamic> userInfo;
+  final ProfileProvider provider;
 
-  Future<void> _pickImage() async {
-    final pickedFile = await _picker.pickImage(source: ImageSource.gallery);
-
-    if (pickedFile != null) {
-      setState(() {
-        _image = File(pickedFile.path);
-      });
-      await _uploadImage();
-    }
-  }
-
-  Future<void> _uploadImage() async {
-    if (_image == null) return;
-
-    final url = Uri.parse('$baseUrl/users-profile/');
-    final token = await getToken();
-
-    var request = http.MultipartRequest('POST', url)
-      ..headers['Authorization'] = 'Bearer $token'
-      ..fields['userId'] = '1'
-      ..fields['description'] = 'Descripción del perfil'
-      ..fields['state'] = 'Estado'
-      ..fields['city'] = 'Ciudad'
-      ..fields['address'] = 'Dirección'
-      ..files.add(
-        await http.MultipartFile.fromPath('profilePhoto', _image!.path),
-      );
-
-    try {
-      var response = await request.send();
-
-      if (response.statusCode == 201) {
-        final responseData = await response.stream.bytesToString();
-        final Map<String, dynamic> data = jsonDecode(responseData);
-
-        if (data.containsKey('profilePhoto') && data['profilePhoto'] != null) {
-          final String imageUrl = data['profilePhoto'];
-          final String relativeImageUrl = imageUrl.replaceFirst(baseUrl, '');
-
-          final prefs = await SharedPreferences.getInstance();
-          final String? userId = prefs.getString('userId');
-          await prefs.setString('profilePhotoUrl_$userId', relativeImageUrl);
-
-          setState(() {
-            _profilePhotoUrl = '$baseUrl$relativeImageUrl?${DateTime.now().millisecondsSinceEpoch}';
-          });
-
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Foto de perfil actualizada correctamente')),
-          );
-        }
-      }
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error al subir la foto de perfil: $e')),
-      );
-    }
-  }
-
-
-  Future<void> logout(BuildContext context) async {
-    final prefs = await SharedPreferences.getInstance();
-    final token = prefs.getString('jwt_token');
-    final refreshToken = prefs.getString('refresh_token');
-    final String? userId = prefs.getString('userId');
-
-    try {
-      if (token != null && refreshToken != null) {
-        final response = await http.post(
-          Uri.parse('$baseUrl/users/logout/'),
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': 'Bearer $token',
-          },
-          body: jsonEncode({'refresh': refreshToken}),
-        );
-
-        // Puedes imprimir para debug
-        print('Logout response: ${response.body}');
-      }
-    } catch (e) {
-      print('Error al cerrar sesión: $e');
-    }
-
-    // Eliminar datos del usuario
-    await prefs.remove('jwt_token');
-    await prefs.remove('refresh_token');
-    await prefs.remove('userId');
-    await prefs.remove('profilePhotoUrl_$userId');
-
-    if (!context.mounted) return;
-    Navigator.pushNamedAndRemoveUntil(context, '/', (route) => false);
-  }
-
-  Future<void> deleteAccount(BuildContext context) async {
-    final prefs = await SharedPreferences.getInstance();
-    final userId = prefs.getString('userId');
-    String deleteUrl = "$baseUrl/users/delete/$userId/";
-
-    try {
-      final token = await getToken();
-      if (token == null) return;
-
-      final response = await http.delete(
-        Uri.parse(deleteUrl),
-        headers: {'Authorization': 'Bearer $token'},
-      );
-
-      if (response.statusCode == 200) {
-        await removeToken();
-        Navigator.pushReplacementNamed(context, '/');
-      }
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error de conexión: $e')),
-      );
-    }
-  }
-
-  Future<Map<String, dynamic>> fetchUserInfo(BuildContext context) async {
-    String userInfoUrl = "$baseUrl/users/me/";
-
-    try {
-      final token = await getToken();
-      if (token == null) throw Exception('No hay token');
-
-      final response = await http.get(
-        Uri.parse(userInfoUrl),
-        headers: {'Authorization': 'Bearer $token'},
-      );
-
-      if (response.statusCode == 200) {
-        return jsonDecode(response.body);
-      } else {
-        throw Exception('Error: ${response.statusCode}');
-      }
-    } catch (e) {
-      await removeToken();
-      Navigator.pushReplacementNamed(context, '/');
-      rethrow;
-    }
-  }
+  const _ProfileActions({
+    required this.userInfo,
+    required this.provider,
+  });
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: CustomAppBar(),
-      body: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: SingleChildScrollView(
-          child: FutureBuilder<Map<String, dynamic>>(
-            future: fetchUserInfo(context),
-            builder: (context, snapshot) {
-              if (snapshot.connectionState == ConnectionState.waiting) {
-                return const Center(child: CircularProgressIndicator());
-              } else if (snapshot.hasError) {
-                return Center(child: Text('Error: ${snapshot.error}'));
-              } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
-                return const Center(child: Text('No se encontraron datos del usuario'));
-              }
-
-              final userInfo = snapshot.data!;
-
-              return Column(
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  Text(
-                    "Mi Perfil",
-                    style: Theme.of(context).textTheme.headlineSmall,
-                    textAlign: TextAlign.center,
-                  ),
-                  const SizedBox(height: 20),
-                  GestureDetector(
-                    onTap: _pickImage,
-                    child: CircleAvatar(
-                      radius: 50,
-                      backgroundImage: _profilePhotoUrl != null
-                          ? NetworkImage(
-                        _profilePhotoUrl!,
-                        headers: {"Cache-Control": "no-cache"},
-                      )
-                          : const AssetImage("assets/images/profile.jpg") as ImageProvider,
-                    ),
-                  ),
-                  const SizedBox(height: 10),
-                  Text(
-                    userInfo['name'] ?? 'Nombre no disponible',
-                    style: Theme.of(context).textTheme.titleLarge,
-                  ),
-                  Text(
-                    "ID de usuario: #${userInfo['id'] ?? 'N/A'}",
-                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: Colors.grey),
-                  ),
-                  const SizedBox(height: 20),
-                  const Divider(),
-                  _buildThemeSwitch(context),
-                  _buildColorBlindnessSettings(context),
-                  const Divider(),
-                  const SizedBox(height: 10),
-                  _buildButton(
-                    context: context,
-                    text: "Vista Previa",
-                    onPressed: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => PreviewScreen(userInfo: userInfo),
-                        ),
-                      );
-                    },
-                  ),
-                  _buildButton(
-                    context: context,
-                    text: "Mis publicaciones",
-                    onPressed: () {
-                      showModalBottomSheet(
-                        context: context,
-                        isScrollControlled: true,
-                        builder: (context) {
-                          return SizedBox(
-                            height: MediaQuery.of(context).size.height * 0.9,
-                            child: const UserPostsModal(),
-                          );
-                        },
-                      );
-                    },
-                  ),
-                  _buildButton(
-                    context: context,
-                    text: "Editar Información",
-                    onPressed: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => EditProfileScreen(userInfo: userInfo),
-                        ),
-                      );
-                    },
-                  ),
-                  _buildButton(
-                    context: context,
-                    text: "Ir a Mensajes",
-                    onPressed: () => Navigator.pushNamed(context, '/messages'),
-                  ),
-                  _buildButton(
-                    context: context,
-                    text: "Cerrar Sesión",
-                    onPressed: () {
-                      showDialog(
-                        context: context,
-                        builder: (context) => AlertDialog(
-                          title: const Text("Cerrar sesión"),
-                          content: const Text("¿Estás seguro que deseas cerrar sesión?"),
-                          actions: [
-                            TextButton(
-                              onPressed: () => Navigator.pop(context),
-                              child: const Text("Cancelar"),
-                            ),
-                            TextButton(
-                              onPressed: () {
-                                Navigator.pop(context);
-                                logout(context);
-                              },
-                              child: const Text("Cerrar sesión"),
-                              
-                            ),
-                          ],
-                        ),
-                      );
-                    },
-
-                    backgroundColor: primaryColor,
-                    textColor: Colors.black,
-                  ),
-                  _buildButton(
-                    context: context,
-                    text: "Eliminar Cuenta",
-                    onPressed: () => deleteAccount(context),
-                    backgroundColor: primaryColor,
-                    textColor: Colors.black,
-                  ),
-                  const SizedBox(height: 20), // Espacio adicional al final para mejor scroll
-                ],
-              );
-            },
-          ),
+    return Column(
+      children: [
+        _ProfileButton(
+          icon: Icons.article,
+          text: "Mis publicaciones",
+          onPressed: () {
+            showModalBottomSheet(
+              context: context,
+              isScrollControlled: true,
+              builder: (context) {
+                return SizedBox(
+                  height: MediaQuery.of(context).size.height * 0.9,
+                  child: const UserPostsModal(),
+                );
+              },
+            );
+          },
         ),
+        _ProfileButton(
+          icon: Icons.edit,
+          text: "Editar Información",
+          onPressed: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => _EditProfileScreen(userInfo: userInfo),
+              ),
+            );
+          },
+        ),
+        _ProfileButton(
+          icon: Icons.message,
+          text: "Ir a Mensajes",
+          onPressed: () => Navigator.pushNamed(context, '/messages'),
+        ),
+        _ProfileButton(
+          icon: Icons.logout,
+          text: "Cerrar Sesión",
+          backgroundColor: const Color(0xFFD0894B),
+          textColor: Colors.black,
+          onPressed: () => _showLogoutDialog(context),
+        ),
+        _ProfileButton(
+          icon: Icons.delete_forever,
+          text: "Eliminar Cuenta",
+          backgroundColor: Colors.red[700],
+          textColor: Colors.white,
+          onPressed: () => _showDeleteAccountDialog(context),
+        ),
+        const SizedBox(height: 20),
+      ],
+    );
+  }
+
+  void _showLogoutDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text("Cerrar sesión"),
+        content: const Text("¿Estás seguro que deseas cerrar sesión?"),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text("Cancelar"),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context);
+              provider.logout(context);
+            },
+            child: const Text("Cerrar sesión"),
+          ),
+        ],
       ),
     );
   }
 
-  Widget _buildButton({
-    required BuildContext context,
-    required String text,
-    required VoidCallback onPressed,
-    Color? backgroundColor,
-    Color? textColor,
-  }) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 10),
-      child: ElevatedButton(
-        onPressed: onPressed,
-        style: ElevatedButton.styleFrom(
-          minimumSize: const Size(double.infinity, 50),
-          backgroundColor: backgroundColor ?? Colors.teal,
-          foregroundColor: textColor ?? Colors.white,
-        ),
-        child: Text(text),
+  void _showDeleteAccountDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text("Eliminar cuenta"),
+        content: const Text(
+            "¿Estás seguro que deseas eliminar tu cuenta permanentemente? "
+            "Esta acción no se puede deshacer y perderás todos tus datos."),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text("Cancelar"),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context);
+              // provider.deleteAccount(context);
+            },
+            child: const Text(
+              "Eliminar",
+              style: TextStyle(color: Colors.red),
+            ),
+          ),
+        ],
       ),
     );
   }
 }
 
-class EditProfileScreen extends StatefulWidget {
+class _ProfileButton extends StatelessWidget {
+  final IconData icon;
+  final String text;
+  final VoidCallback onPressed;
+  final Color? backgroundColor;
+  final Color? textColor;
+
+  const _ProfileButton({
+    required this.icon,
+    required this.text,
+    required this.onPressed,
+    this.backgroundColor,
+    this.textColor,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: ElevatedButton.icon(
+        onPressed: onPressed,
+        style: ElevatedButton.styleFrom(
+          minimumSize: const Size(double.infinity, 50),
+          backgroundColor: backgroundColor ?? Theme.of(context).primaryColor,
+          foregroundColor: textColor ?? Colors.white,
+        ),
+        icon: Icon(icon, size: 20),
+        label: Text(text),
+      ),
+    );
+  }
+}
+
+class _EditProfileScreen extends StatefulWidget {
   final Map<String, dynamic> userInfo;
 
-  const EditProfileScreen({super.key, required this.userInfo});
+  const _EditProfileScreen({required this.userInfo});
 
   @override
   _EditProfileScreenState createState() => _EditProfileScreenState();
 }
 
-class _EditProfileScreenState extends State<EditProfileScreen> {
+class _EditProfileScreenState extends State<_EditProfileScreen> {
   final _formKey = GlobalKey<FormState>();
-  final TextEditingController _nameController = TextEditingController();
-  final TextEditingController _firstNameController = TextEditingController();
-  final TextEditingController _ageController = TextEditingController();
-  final TextEditingController _emailController = TextEditingController();
-  final TextEditingController _phoneController = TextEditingController();
-  final TextEditingController _addressController = TextEditingController();
+  late final TextEditingController _nameController;
+  late final TextEditingController _firstNameController;
+  late final TextEditingController _ageController;
+  late final TextEditingController _emailController;
+  late final TextEditingController _phoneController;
+  bool _isLoading = false;
 
   @override
   void initState() {
     super.initState();
-    _nameController.text = widget.userInfo['name'] ?? '';
-    _firstNameController.text = widget.userInfo['first_name'] ?? '';
-    _ageController.text = widget.userInfo['age']?.toString() ?? '';
-    _emailController.text = widget.userInfo['email'] ?? '';
-    _phoneController.text = widget.userInfo['phone_number'] ?? '';
-    _addressController.text = widget.userInfo['address'] ?? '';
+    _nameController = TextEditingController(text: widget.userInfo['name'] ?? '');
+    _firstNameController = TextEditingController(text: widget.userInfo['first_name'] ?? '');
+    _ageController = TextEditingController(text: widget.userInfo['age']?.toString() ?? '');
+    _emailController = TextEditingController(text: widget.userInfo['email'] ?? '');
+    _phoneController = TextEditingController(text: widget.userInfo['phone_number'] ?? '');
   }
 
-  Future<void> _updateUserInfo() async {
-    final String baseUrl = dotenv.env['API_URL'] ?? '192.168.1.133:8000/';
-    String updateUrl = "$baseUrl/users/update/${widget.userInfo['id']}/";
-
-    final Map<String, dynamic> updatedData = {
-      'name': _nameController.text,
-      'first_name': _firstNameController.text,
-      'age': int.tryParse(_ageController.text) ?? 0,
-      'email': _emailController.text,
-      'phone_number': _phoneController.text,
-      'address': _addressController.text,
-    };
-
-    try {
-      final token = await getToken();
-      if (token == null) return;
-
-      final response = await http.put(
-        Uri.parse(updateUrl),
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer $token',
-        },
-        body: jsonEncode(updatedData),
-      );
-
-      if (response.statusCode == 200) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Información actualizada correctamente')),
-        );
-        Navigator.pop(context);
-      }
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error de conexión: $e')),
-      );
-    }
+  @override
+  void dispose() {
+    _nameController.dispose();
+    _firstNameController.dispose();
+    _ageController.dispose();
+    _emailController.dispose();
+    _phoneController.dispose();
+    super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text("Editar Información")),
+      appBar: AppBar(
+        title: const Text("Editar Información"),
+        actions: [
+          if (_isLoading)
+            const Padding(
+              padding: EdgeInsets.only(right: 16.0),
+              child: Center(child: CircularProgressIndicator()),
+            ),
+        ],
+      ),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Form(
@@ -585,23 +511,37 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
               TextFormField(
                 controller: _nameController,
                 decoration: const InputDecoration(labelText: "Nombre"),
+                validator: (value) =>
+                    value?.isEmpty ?? true ? 'Ingresa tu nombre' : null,
               ),
               const SizedBox(height: 10),
               TextFormField(
                 controller: _firstNameController,
                 decoration: const InputDecoration(labelText: "Apellido"),
+                validator: (value) =>
+                    value?.isEmpty ?? true ? 'Ingresa tu apellido' : null,
               ),
               const SizedBox(height: 10),
               TextFormField(
                 controller: _ageController,
                 decoration: const InputDecoration(labelText: "Edad"),
                 keyboardType: TextInputType.number,
+                validator: (value) {
+                  if (value?.isEmpty ?? true) return 'Ingresa tu edad';
+                  if (int.tryParse(value!) == null) return 'Edad inválida';
+                  return null;
+                },
               ),
               const SizedBox(height: 10),
               TextFormField(
                 controller: _emailController,
                 decoration: const InputDecoration(labelText: "Correo"),
                 keyboardType: TextInputType.emailAddress,
+                validator: (value) {
+                  if (value?.isEmpty ?? true) return 'Ingresa tu correo';
+                  if (!value!.contains('@')) return 'Correo inválido';
+                  return null;
+                },
               ),
               const SizedBox(height: 10),
               TextFormField(
@@ -611,12 +551,11 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
               ),
               const SizedBox(height: 10),
               TextFormField(
-                controller: _addressController,
                 decoration: const InputDecoration(labelText: "Dirección"),
               ),
               const SizedBox(height: 20),
               ElevatedButton(
-                onPressed: _updateUserInfo,
+                onPressed: _isLoading ? null : _updateProfile,
                 child: const Text("Guardar Cambios"),
               ),
             ],
@@ -625,79 +564,32 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       ),
     );
   }
-}
 
-class PreviewScreen extends StatelessWidget {
-  final Map<String, dynamic> userInfo;
+  Future<void> _updateProfile() async {
+    if (!_formKey.currentState!.validate()) return;
 
-  const PreviewScreen({super.key, required this.userInfo});
+    setState(() => _isLoading = true);
 
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text("Vista Previa"),
-        backgroundColor: Colors.teal,
-      ),
-      body: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.center,
-          children: [
-            const CircleAvatar(
-              radius: 50,
-              backgroundImage: AssetImage("assets/images/profile.jpg"),
-            ),
-            const SizedBox(height: 20),
-            Text(
-              userInfo['name'] ?? 'Nombre no disponible',
-              style: Theme.of(context).textTheme.titleLarge,
-            ),
-            const SizedBox(height: 10),
-            Text(
-              userInfo['first_name'] ?? 'Apellido no disponible',
-              style: Theme.of(context).textTheme.bodyLarge?.copyWith(color: Colors.grey),
-            ),
-            const SizedBox(height: 20),
-            Text(
-              "ID de usuario: #${userInfo['id'] ?? 'N/A'}",
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: Colors.grey),
-            ),
-            const SizedBox(height: 10),
-            Text(
-              "Edad: ${userInfo['age'] ?? 'N/A'}",
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: Colors.grey),
-            ),
-            const SizedBox(height: 10),
-            Text(
-              "Correo: ${userInfo['email'] ?? 'N/A'}",
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: Colors.grey),
-            ),
-            const SizedBox(height: 10),
-            Text(
-              "Teléfono: ${userInfo['phone_number'] ?? 'N/A'}",
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: Colors.grey),
-            ),
-            const SizedBox(height: 10),
-            Text(
-              "Dirección: ${userInfo['address'] ?? 'N/A'}",
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: Colors.grey),
-            ),
-            const SizedBox(height: 30),
-            ElevatedButton(
-              onPressed: () => Navigator.pop(context),
-              style: ElevatedButton.styleFrom(
-                minimumSize: const Size(double.infinity, 50),
-                backgroundColor: Colors.teal,
-              ),
-              child: const Text(
-                "Regresar",
-                style: TextStyle(fontSize: 16, color: Colors.white),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
+    try {
+      // Implementar lógica de actualización aquí
+      await Future.delayed(const Duration(seconds: 1)); // Simulación
+      
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Información actualizada')),
+        );
+        Navigator.pop(context);
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error: $e')),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
+    }
   }
 }

@@ -31,6 +31,16 @@ class _AdoptScreenState extends State<AdoptScreen> {
   String? selectedBreed;
   File? selectedImage;
 
+  // Variables para ubicación
+  List<String> estados = [];
+  List<String> municipios = [];
+  String? selectedEstado;
+  String? selectedMunicipio;
+  bool loadingEstados = false;
+  bool loadingMunicipios = false;
+  String? currentUserState;
+  late Function(void Function()) _dialogSetState;
+
   late final String apiUrl;
   late final String baseUrl;
   late final String mediaUrl;
@@ -41,7 +51,151 @@ class _AdoptScreenState extends State<AdoptScreen> {
     apiUrl = dotenv.env['API_URL'] ?? 'http://192.168.1.133:8000/api';
     baseUrl = apiUrl;
     mediaUrl = dotenv.env['MEDIA_URL'] ?? 'http://192.168.1.133:8000';
-    fetchData();
+    _initializeData();
+  }
+
+  Future<void> _initializeData() async {
+    await _loadUserLocation();
+    await _loadEstados();
+    await fetchData();
+  }
+
+  Future<void> _loadUserLocation() async {
+    final prefs = await SharedPreferences.getInstance();
+    setState(() {
+      currentUserState = prefs.getString('user_state');
+    });
+  }
+
+  Future<void> _loadEstados() async {
+    setState(() => loadingEstados = true);
+
+    try {
+      final response = await http.get(
+        Uri.parse('https://api.tau.com.mx/dipomex/v1/estados'),
+        headers: {
+          'APIKEY': dotenv.env['DIPOMEX_API_KEY'] ?? '',
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
+      );
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        List<String> estadosTemp = [];
+
+        if (data is Map && data['estados'] != null && data['estados'] is List) {
+          estadosTemp = (data['estados'] as List).map<String>((estadoMap) {
+            if (estadoMap is Map && estadoMap['ESTADO'] != null) {
+              return estadoMap['ESTADO'].toString();
+            }
+            return '';
+          }).where((estado) => estado.isNotEmpty).toList();
+        }
+
+        estadosTemp = estadosTemp.toSet().toList()..sort();
+
+        setState(() {
+          estados = estadosTemp;
+          if (currentUserState != null && estados.contains(currentUserState)) {
+            selectedEstado = currentUserState;
+          } else {
+            selectedEstado = null;
+          }
+        });
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error al cargar estados: ${response.statusCode}')),
+        );
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error de conexión: $e')),
+      );
+    } finally {
+      setState(() => loadingEstados = false);
+    }
+  }
+
+  Future<void> _loadMunicipios(String estadoNombre) async {
+    if (!mounted) return;
+
+    _dialogSetState(() {
+      loadingMunicipios = true;
+      municipios = [];
+      selectedMunicipio = null;
+    });
+
+    try {
+      // 1. Obtener ID del estado
+      final estadosResponse = await http.get(
+        Uri.parse('https://api.tau.com.mx/dipomex/v1/estados'),
+        headers: {'APIKEY': dotenv.env['DIPOMEX_API_KEY'] ?? ''},
+      );
+
+      if (estadosResponse.statusCode != 200) {
+        throw Exception('Error al obtener estados: ${estadosResponse.statusCode}');
+      }
+
+      final estadosData = jsonDecode(estadosResponse.body);
+      String? estadoId;
+
+      if (estadosData is Map && estadosData['estados'] is List) {
+        final listaEstados = estadosData['estados'] as List;
+        final estadoEncontrado = listaEstados.firstWhere(
+          (estado) => estado is Map && 
+                     estado['ESTADO']?.toString().toUpperCase() == estadoNombre.toUpperCase(),
+          orElse: () => null,
+        );
+
+        if (estadoEncontrado != null && estadoEncontrado is Map) {
+          estadoId = estadoEncontrado['ESTADO_ID']?.toString();
+        }
+      }
+
+      if (estadoId == null) {
+        throw Exception('No se encontró ID para el estado $estadoNombre');
+      }
+
+      // 2. Obtener municipios
+      final municipiosResponse = await http.get(
+        Uri.parse('https://api.tau.com.mx/dipomex/v1/municipios?id_estado=$estadoId'),
+        headers: {'APIKEY': dotenv.env['DIPOMEX_API_KEY'] ?? ''},
+      );
+
+      if (municipiosResponse.statusCode != 200) {
+        throw Exception('Error al obtener municipios: ${municipiosResponse.statusCode}');
+      }
+
+      final municipiosData = jsonDecode(municipiosResponse.body);
+      
+      if (municipiosData['error'] == false && municipiosData['municipios'] is List) {
+        final listaMunicipios = municipiosData['municipios'] as List;
+        
+        final municipiosTemp = listaMunicipios.map<String>((item) {
+          if (item is Map && item['MUNICIPIO'] != null) {
+            return item['MUNICIPIO'].toString();
+          }
+          return '';
+        }).where((m) => m.isNotEmpty).toList();
+        
+        municipiosTemp.sort();
+
+        _dialogSetState(() {
+          municipios = municipiosTemp;
+          loadingMunicipios = false;
+        });
+      } else {
+        throw Exception('Error en respuesta de municipios: ${municipiosData['message']}');
+      }
+    } catch (e) {
+      _dialogSetState(() {
+        loadingMunicipios = false;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error al cargar municipios: $e')),
+      );
+    }
   }
 
   Future<void> fetchData() async {
@@ -113,20 +267,20 @@ class _AdoptScreenState extends State<AdoptScreen> {
 
         setState(() {
           allPosts = processedPosts;
-          posts = applyFilters(processedPosts);
+          // Filtrar por ubicación si hay un estado seleccionado
+          if (currentUserState != null && currentUserState!.isNotEmpty) {
+            posts = applyFilters(processedPosts.where((post) {
+              final postState = post['state'] ?? post['pet']['state'] ?? '';
+              return postState == currentUserState;
+            }).toList());
+          } else {
+            posts = applyFilters(processedPosts);
+          }
           isLoading = false;
         });
       } else {
         throw Exception("Error al cargar los datos");
       }
-
-      print('API_URL: $apiUrl');
-      print('Token: $token');
-      print('postsResponse.statusCode: ${postsResponse.statusCode}');
-      print('petsResponse.statusCode: ${petsResponse.statusCode}');
-      print('imgsResponse.statusCode: ${imgsResponse.statusCode}');
-      print('usersResponse.statusCode: ${usersResponse.statusCode}');
-
     } catch (e) {
       setState(() {
         isLoading = false;
@@ -278,7 +432,6 @@ class _AdoptScreenState extends State<AdoptScreen> {
     );
   }
 
-
   Future<void> _createPostWithExistingPet() async {
     final SharedPreferences prefs = await SharedPreferences.getInstance();
     final String? token = prefs.getString('jwt_token');
@@ -333,12 +486,16 @@ class _AdoptScreenState extends State<AdoptScreen> {
         String? selectedPetId;
         final descriptionController = TextEditingController();
         File? selectedImage;
+        String? selectedEstado;
+        String? selectedMunicipio;
 
         await showDialog(
           context: context,
           builder: (context) {
             return StatefulBuilder(
               builder: (context, setState) {
+                _dialogSetState = setState;
+                
                 return AlertDialog(
                   title: const Text("Publicar mascota en adopción"),
                   content: SingleChildScrollView(
@@ -366,6 +523,61 @@ class _AdoptScreenState extends State<AdoptScreen> {
                           }).toList(),
                           onChanged: (value) => setState(() => selectedPetId = value),
                         ),
+                        const SizedBox(height: 20),
+                        
+                        // Selector de estado
+                        DropdownButtonFormField<String>(
+                          value: selectedEstado,
+                          hint: loadingEstados 
+                              ? const Text("Cargando...")
+                              : const Text("Selecciona estado"),
+                          items: loadingEstados
+                              ? []
+                              : estados.map((estado) {
+                                  return DropdownMenuItem<String>(
+                                    value: estado,
+                                    child: Text(estado),
+                                  );
+                                }).toList(),
+                          onChanged: loadingEstados
+                              ? null
+                              : (value) {
+                                  setState(() {
+                                    selectedEstado = value;
+                                    selectedMunicipio = null;
+                                    if (value != null) {
+                                      _loadMunicipios(value);
+                                    }
+                                  });
+                                },
+                        ),
+
+                        const SizedBox(height: 10),
+
+                        // Selector de municipio
+                        if (selectedEstado != null)
+                          DropdownButtonFormField<String>(
+                            value: selectedMunicipio,
+                            hint: loadingMunicipios
+                                ? const Text('Cargando municipios...')
+                                : const Text('Selecciona un municipio'),
+                            items: loadingMunicipios || municipios.isEmpty
+                                ? []
+                                : municipios.map((String value) {
+                                    return DropdownMenuItem<String>(
+                                      value: value,
+                                      child: Text(value),
+                                    );
+                                  }).toList(),
+                            onChanged: loadingMunicipios || municipios.isEmpty
+                                ? null
+                                : (newValue) {
+                                    setState(() {
+                                      selectedMunicipio = newValue;
+                                    });
+                                  },
+                          ),
+
                         const SizedBox(height: 20),
                         TextField(
                           controller: descriptionController,
@@ -413,9 +625,12 @@ class _AdoptScreenState extends State<AdoptScreen> {
                     ),
                     ElevatedButton(
                       onPressed: () async {
-                        if (selectedPetId == null || descriptionController.text.isEmpty) {
+                        if (selectedPetId == null || 
+                            descriptionController.text.isEmpty ||
+                            selectedEstado == null ||
+                            selectedMunicipio == null) {
                           ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(content: Text("Debes seleccionar una mascota y escribir una descripción")),
+                            const SnackBar(content: Text("Completa todos los campos")),
                           );
                           return;
                         }
@@ -441,6 +656,8 @@ class _AdoptScreenState extends State<AdoptScreen> {
                               "postDate": DateFormat('yyyy-MM-dd').format(DateTime.now()),
                               "petId": int.parse(selectedPetId!),
                               "userId": userId,
+                              "state": selectedEstado,
+                              "city": selectedMunicipio,
                             }),
                           );
 
@@ -471,7 +688,6 @@ class _AdoptScreenState extends State<AdoptScreen> {
                           }
 
                           // 3. Enviar notificaciones a todos los usuarios
-                          print("Enviando notificación de adopción");
                           final notifResponse = await http.post(
                             Uri.parse('$baseUrl/notifications/send-adoption-pet/'),
                             headers: {
@@ -482,10 +698,10 @@ class _AdoptScreenState extends State<AdoptScreen> {
                               'post_id': postId,
                               'pet_name': selectedPet['name'],
                               'user_id': userId,
+                              'state': selectedEstado,
+                              'city': selectedMunicipio,
                             }),
                           );
-
-                          print("Respuesta notificaciones: ${notifResponse.statusCode} - ${notifResponse.body}");
 
                           ScaffoldMessenger.of(context).showSnackBar(
                             const SnackBar(content: Text("¡Publicación creada y notificaciones enviadas!")),
@@ -495,7 +711,6 @@ class _AdoptScreenState extends State<AdoptScreen> {
                           ScaffoldMessenger.of(context).showSnackBar(
                             SnackBar(content: Text("Error: ${e.toString()}")),
                           );
-                          print("Error completo: $e");
                         } finally {
                           setState(() {
                             isLoading = false;
@@ -597,7 +812,12 @@ class _AdoptScreenState extends State<AdoptScreen> {
                     Text("Tamaño: ${pet['size'] ?? "Desconocido"}", style: const TextStyle(fontSize: 14)),
                     const SizedBox(height: 5),
                     Text(
-                      post['description'] ?? "Sin detalles adicionales",
+                      "Ubicación: ${post['city'] ?? "Ciudad desconocida"}, ${post['state'] ?? "Estado desconocido"}",
+                      style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
+                    ),
+                    const SizedBox(height: 5),
+                    Text(
+                      "Descripción: ${post['description'] ?? "Sin detalles adicionales"}",
                       style: const TextStyle(fontSize: 14),
                     ),
                     const SizedBox(height: 10),
@@ -674,6 +894,19 @@ class _AdoptScreenState extends State<AdoptScreen> {
       body: Column(
         children: [
           const SizedBox(height: 10),
+          const Text(
+            "Mascotas en Adopción",
+            style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+            textAlign: TextAlign.center,
+          ),
+          if (currentUserState != null)
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 5),
+              child: Text(
+                "Mostrando mascotas en adopción en $currentUserState",
+                style: const TextStyle(fontSize: 14, color: Colors.grey),
+              ),
+            ),
           Padding(
             padding: const EdgeInsets.all(10),
             child: Wrap(

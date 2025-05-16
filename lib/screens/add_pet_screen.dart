@@ -26,7 +26,7 @@ class _AddPetScreenState extends State<AddPetScreen> {
   bool _isLoading = false;
 
   late final String _baseUrl;
-  final List<String> _sizeOptions = ['Pequeño', 'Mediano', 'Grande'];
+  final List<String> _sizeOptions = ['Pequeno', 'Mediano', 'Grande'];
   final Map<int, String> _statusOptions = {
     0: 'Perdido',
     1: 'Adoptado', 
