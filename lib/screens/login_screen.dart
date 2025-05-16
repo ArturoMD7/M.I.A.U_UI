@@ -172,7 +172,9 @@ class _LoginScreenState extends State<LoginScreen> {
                 Align(
                   alignment: Alignment.centerRight,
                   child: TextButton(
-                    onPressed: () {},
+                    onPressed: () {
+                      Navigator.pushNamed(context, '/recovery-password');
+                    },
                     child: Text(
                       "¿Olvidaste tu contraseña?",
                       style: TextStyle(color: accentColor),
