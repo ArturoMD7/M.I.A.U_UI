@@ -7,19 +7,42 @@ import 'custom_app_bar.dart';
 import 'add_pet_screen.dart';
 import '../services/pet_provider.dart';
 
-
 class PetIdScreen extends StatefulWidget {
   const PetIdScreen({super.key});
-  
 
   @override
   _PetIdScreenState createState() => _PetIdScreenState();
-  
 }
 
 class _PetIdScreenState extends State<PetIdScreen> {
   late String _baseUrl;
   
+  // Mapas para las traducciones de estado, tipo y edad
+  final Map<int, String> _statusTexts = {
+    0: 'Perdido',
+    1: 'Adoptado',
+    2: 'Buscando familia',
+  };
+
+  final Map<int, String> _typeTexts = {
+    0: 'Perro',
+    1: 'Gato', 
+    2: 'Ave',
+    3: 'Roedor',
+    4: 'Otro'
+  };
+
+  final Map<int, String> _ageTexts = {
+    0: 'Cachorro',
+    1: 'Joven', 
+    2: 'Adulto'
+  };
+
+  final Map<int, Color> _statusColors = {
+    0: Colors.red,
+    1: Colors.green,
+    2: Colors.orange,
+  };
 
   @override
   void initState() {
@@ -32,9 +55,11 @@ class _PetIdScreenState extends State<PetIdScreen> {
     return prefs.getString('jwt_token');
   }
 
-  Future<int?> _getUserId() async {
-    final prefs = await SharedPreferences.getInstance();
-    return prefs.getInt('user_id');
+  Future<void> _refreshPets() async {
+    final token = await _getToken();
+    if (token != null) {
+      await Provider.of<PetProvider>(context, listen: false).fetchPets(token);
+    }
   }
 
   Future<void> _deletePet(BuildContext context, int petId) async {
@@ -72,8 +97,8 @@ class _PetIdScreenState extends State<PetIdScreen> {
       if (response.statusCode == 204) {
         if (!mounted) return;
         
-        // Actualizar la lista de mascotas
-        await Provider.of<PetProvider>(context, listen: false).fetchPets(token);
+        // Actualiza el estado local primero
+        Provider.of<PetProvider>(context, listen: false).removePet(petId);
         
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text("Mascota eliminada exitosamente")),
@@ -88,12 +113,20 @@ class _PetIdScreenState extends State<PetIdScreen> {
       );
     }
   }
+
+
   void _showPetDetails(BuildContext context, Map<String, dynamic> pet) {
     final statusText = {
       0: 'Perdido',
       1: 'Adoptado',
       2: 'Buscando familia',
     }[pet['statusAdoption']] ?? 'Desconocido';
+
+    final ageText = {
+      0: 'Cachorro',
+      1: 'Joven',
+      2: 'Adulto',
+    }[pet['age']] ?? pet['age']?.toString() ?? 'Desconocido';
 
     final statusColor = {
       0: Colors.red,
@@ -156,7 +189,7 @@ class _PetIdScreenState extends State<PetIdScreen> {
     );
   }
 
-  Widget _buildDetailRow(String label, String? value) {
+  Widget _buildDetailRow(String label, dynamic value) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4.0),
       child: Row(
@@ -164,7 +197,7 @@ class _PetIdScreenState extends State<PetIdScreen> {
         children: [
           Text(label, style: const TextStyle(fontWeight: FontWeight.bold)),
           const SizedBox(width: 8),
-          Expanded(child: Text(value ?? 'No disponible')),
+          Expanded(child: Text(value?.toString() ?? 'No disponible')),
         ],
       ),
     );
@@ -174,7 +207,6 @@ class _PetIdScreenState extends State<PetIdScreen> {
   Widget build(BuildContext context) {
     final petProvider = Provider.of<PetProvider>(context);
 
-    // Cargar mascotas si no se han cargado
     if (!petProvider.hasLoaded && !petProvider.isLoading) {
       _getToken().then((token) {
         if (token != null) {
@@ -234,7 +266,6 @@ class _PetIdScreenState extends State<PetIdScreen> {
             context,
             MaterialPageRoute(builder: (context) => const AddPetScreen()),
           ).then((_) {
-            // Recargar después de agregar
             _getToken().then((token) {
               if (token != null) {
                 petProvider.fetchPets(token);
@@ -250,17 +281,14 @@ class _PetIdScreenState extends State<PetIdScreen> {
   }
 
   Widget _buildPetCard(BuildContext context, Map<String, dynamic> pet) {
-    final statusText = {
-      0: 'Perdido',
-      1: 'Adoptado',
-      2: 'Buscando familia',
-    }[pet['statusAdoption']] ?? 'Desconocido';
-
-    final statusColor = {
-      0: Colors.red,
-      1: Colors.green,
-      2: Colors.orange,
-    }[pet['statusAdoption']] ?? Colors.grey;
+    final ageText = {
+      0: 'Cachorro',
+      1: 'Joven',
+      2: 'Adulto',
+    }[pet['age']] ?? pet['age']?.toString() ?? 'Desconocido';
+    final statusText = _statusTexts[pet['statusAdoption']] ?? 'Desconocido';
+    final breedText = pet['breed'] ?? 'Desconocido'; // Mostramos directamente el breed
+    final statusColor = _statusColors[pet['statusAdoption']] ?? Colors.grey;
 
     return Card(
       elevation: 3,
@@ -274,13 +302,18 @@ class _PetIdScreenState extends State<PetIdScreen> {
             children: [
               Row(
                 children: [
-                  CircleAvatar(
-                    backgroundImage: pet['imagePath'] != null
-                        ? NetworkImage(pet['imagePath'])
-                        : const AssetImage("assets/images/default_pet.png") as ImageProvider,
-                    radius: 30,
-                    onBackgroundImageError: (e, stack) => const Icon(Icons.pets),
-                  ),
+                  if (pet['imagePath'] != null)
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(8),
+                      child: Image.network(
+                        pet['imagePath'],
+                        width: 80,
+                        height: 80,
+                        fit: BoxFit.cover,
+                        errorBuilder: (context, error, stackTrace) => 
+                          const Icon(Icons.pets, size: 40),
+                      ),
+                    ),
                   const SizedBox(width: 16),
                   Expanded(
                     child: Column(
@@ -289,13 +322,17 @@ class _PetIdScreenState extends State<PetIdScreen> {
                         Text(
                           pet['name'] ?? 'Nombre no disponible',
                           style: const TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
+                            fontSize: 20,
+                            fontWeight: FontWeight.w800,
                           ),
                         ),
                         const SizedBox(height: 4),
                         Text(
-                          pet['breed'] ?? 'Raza no disponible',
+                          '$breedText - $ageText', // Mostramos breed directamente
+                          style: const TextStyle(fontSize: 16),
+                        ),
+                        Text(
+                          'Tamaño: ${pet['size'] ?? 'No especificado'}',
                           style: const TextStyle(fontSize: 14),
                         ),
                       ],
@@ -323,7 +360,6 @@ class _PetIdScreenState extends State<PetIdScreen> {
                           ),
                         ),
                       ).then((_) {
-                        // Recargar después de editar
                         _getToken().then((token) {
                           if (token != null) {
                             Provider.of<PetProvider>(context, listen: false)

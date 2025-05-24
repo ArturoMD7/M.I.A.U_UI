@@ -13,6 +13,8 @@ import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'comment_screen.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 
+const Color primaryColor = Color(0xFFD68F5E);
+
 class AdoptScreen extends StatefulWidget {
   final int? initialPostId;
   final bool isModal;
@@ -134,14 +136,19 @@ class _AdoptScreenState extends State<AdoptScreen> {
 
   Future<void> _loadMunicipios(String estadoNombre) async {
     if (!mounted) return;
-
-    _dialogSetState(() {
-      loadingMunicipios = true;
-      municipios = [];
-      selectedMunicipio = null;
-    });
+      _dialogSetState(() {
+        loadingMunicipios = true;
+        municipios = [];
+        selectedMunicipio = null;
+      });
 
     try {
+      if (!mounted) return;
+      _dialogSetState(() {
+        loadingMunicipios = true;
+        municipios = [];
+        selectedMunicipio = null;
+      });
       // 1. Obtener ID del estado
       final estadosResponse = await http.get(
         Uri.parse('https://api.tau.com.mx/dipomex/v1/estados'),
@@ -203,21 +210,35 @@ class _AdoptScreenState extends State<AdoptScreen> {
       } else {
         throw Exception('Error en respuesta de municipios: ${municipiosData['message']}');
       }
+
+
+        // Verificar nuevamente antes de la última actualización
+      if (!mounted) return;
+      _dialogSetState(() {
+        municipios = municipiosData;
+        loadingMunicipios = false;
+      });
     } catch (e) {
+      if (!mounted) return;
       _dialogSetState(() {
         loadingMunicipios = false;
       });
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Error al cargar municipios: $e')),
       );
     }
+    
   }
 
   Future<void> fetchData() async {
-    setState(() {
-      isLoading = true;
-      errorMessage = '';
-    });
+     if (!mounted) return;
+      setState(() {
+        isLoading = true;
+        errorMessage = '';
+      });
+
+   
 
     try {
       final SharedPreferences prefs = await SharedPreferences.getInstance();
@@ -316,17 +337,8 @@ class _AdoptScreenState extends State<AdoptScreen> {
         return false;
       }
       
-      if (selectedAge != null) {
-        final ageStr = pet['age'].toLowerCase();
-        final age = int.tryParse(ageStr.replaceAll(RegExp(r'[^0-9]'), '')) ?? 0;
-        
-        if (selectedAge == 'Cachorro' && (age < 0 || age > 1)) {
-          return false;
-        } else if (selectedAge == 'Joven' && (age < 2 || age > 6)) {
-          return false;
-        } else if (selectedAge == 'Adulto' && age <= 6) {
-          return false;
-        }
+      if (selectedAge != null && !pet['age'].toLowerCase().contains(selectedAge!.toLowerCase()) ) {
+        return false;
       }
       
       return true;
@@ -774,15 +786,6 @@ class _AdoptScreenState extends State<AdoptScreen> {
                 padding: const EdgeInsets.all(12),
                 child: Row(
                   children: [
-                    CircleAvatar(
-                      radius: 20,
-                      backgroundImage: user != null && user['profilePhoto'] != null
-                          ? CachedNetworkImageProvider(
-                        "$mediaUrl${user['profilePhoto']}",
-                        headers: const {"Cache-Control": "no-cache"},
-                      )
-                          : const AssetImage("assets/images/default_profile.jpg") as ImageProvider,
-                    ),
                     const SizedBox(width: 10),
                     Expanded(
                       child: Column(
@@ -836,7 +839,7 @@ class _AdoptScreenState extends State<AdoptScreen> {
                       ),
                       const SizedBox(height: 4),
                       Text('Edad: ${pet['age'] ?? 'Desconocida'}'),
-                      Text('Raza: ${pet['breed'] ?? 'Desconocida'}'),
+                      Text('Tipo: ${pet['breed'] ?? 'Desconocida'}'),
                       Text('Tamaño: ${pet['size'] ?? 'Desconocido'}'),
                       if (post['city'] != null || post['state'] != null)
                         Text(
@@ -962,7 +965,7 @@ class _AdoptScreenState extends State<AdoptScreen> {
                 DropdownButton<String>(
                   hint: const Text("Tamaño"),
                   value: selectedSize,
-                  items: ["Pequeño", "Mediano", "Grande"].map((String value) {
+                  items: ["Pequeno", "Mediano", "Grande"].map((String value) {
                     return DropdownMenuItem<String>(
                       value: value,
                       child: Text(value),
@@ -992,9 +995,9 @@ class _AdoptScreenState extends State<AdoptScreen> {
                   },
                 ),
                 DropdownButton<String>(
-                  hint: const Text("Raza"),
+                  hint: const Text("Tipo"),
                   value: selectedBreed,
-                  items: ["Labrador", "Siamés", "Golden Retriever", "Persa", "Mestizo"].map((String value) {
+                  items: ["Perro", "Gato", "Roedor", "Ave", "Otro"].map((String value) {
                     return DropdownMenuItem<String>(
                       value: value,
                       child: Text(value),
@@ -1016,6 +1019,10 @@ class _AdoptScreenState extends State<AdoptScreen> {
                       posts = applyFilters(allPosts);
                     });
                   },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: primaryColor,
+                    foregroundColor: Colors.white,
+                  ),
                   child: const Text("Limpiar filtros"),
                 ),
               ],
@@ -1034,7 +1041,7 @@ class _AdoptScreenState extends State<AdoptScreen> {
                 : RefreshIndicator(
               onRefresh: fetchData,
               child: ListView.builder(
-                controller: _scrollController, // Añade el controller aquí
+                controller: _scrollController, 
                 padding: const EdgeInsets.all(10),
                 itemCount: posts.length,
                 itemBuilder: (context, index) => _buildPostCard(posts[index]),

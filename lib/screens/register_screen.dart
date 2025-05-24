@@ -3,6 +3,8 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 
+const Color primaryColor = Color(0xFFD68F5E);
+
 void main() async {
   await dotenv.load(fileName: '.env');
   runApp(MaterialApp(home: RegisterScreen()));
@@ -196,10 +198,11 @@ class _RegisterScreenState extends State<RegisterScreen> {
     }
   }
 
+  
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Registro')),
+      appBar: AppBar(title: const Text('Registro'), backgroundColor: primaryColor,),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(20),
         child: Form(
@@ -238,6 +241,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   const SizedBox(width: 10),
                   ElevatedButton(
                     onPressed: isSearchingCP ? null : searchCP,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: primaryColor,
+                      foregroundColor: Colors.white,
+                    ),
                     child: isSearchingCP 
                         ? const SizedBox(
                             width: 20,
@@ -294,6 +301,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
               const SizedBox(height: 20),
               ElevatedButton(
                 onPressed: isLoading ? null : createUser,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: primaryColor,
+                  foregroundColor: Colors.white,
+                ),
                 child: isLoading 
                     ? const CircularProgressIndicator()
                     : const Text('Registrarse'),

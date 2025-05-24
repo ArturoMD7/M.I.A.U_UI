@@ -677,7 +677,6 @@ class _LostPetsScreenState extends State<LostPetsScreen> {
             ...post,
             'user_name': user['name'],
             'user_first_name': user['first_name'],
-            'user_profile_photo': user['profilePhoto'],
             'created_at': post['postDate'],
           },
           onDelete: user['id'] == currentUserId

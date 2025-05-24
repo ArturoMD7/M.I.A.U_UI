@@ -47,7 +47,6 @@ class PostWidget extends StatelessWidget {
   }
   @override
   Widget build(BuildContext context) {
-    final profilePhotoUrl = _getImageUrl(post['user_profile_photo']);
     final postImages = post['images'] as List<dynamic>? ?? [];
     final pet = post['pet'] as Map<String, dynamic>? ?? {};
 
@@ -62,15 +61,6 @@ class PostWidget extends StatelessWidget {
             padding: const EdgeInsets.all(12),
             child: Row(
               children: [
-                CircleAvatar(
-                  radius: 20,
-                  backgroundImage: profilePhotoUrl.isNotEmpty
-                      ? CachedNetworkImageProvider(
-                          profilePhotoUrl,
-                          headers: const {"Cache-Control": "no-cache"},
-                        )
-                      : const AssetImage("assets/images/default_profile.jpg") as ImageProvider,
-                ),
                 const SizedBox(width: 10),
                 Expanded(
                   child: Column(
@@ -119,7 +109,7 @@ class PostWidget extends StatelessWidget {
                   ),
                   const SizedBox(height: 4),
                   Text('Edad: ${pet['age'] ?? 'Desconocida'}'),
-                  Text('Raza: ${pet['breed'] ?? 'Desconocida'}'),
+                  Text('Tipo: ${pet['breed'] ?? 'Desconocida'}'),
                   Text('Tamaño: ${pet['size'] ?? 'Desconocido'}'),
                   if (post['city'] != null || post['state'] != null)
                     Text(
