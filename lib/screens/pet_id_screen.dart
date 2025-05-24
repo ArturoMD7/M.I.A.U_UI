@@ -220,22 +220,7 @@ class _PetIdScreenState extends State<PetIdScreen> {
     }
 
     return Scaffold(
-      appBar: CustomAppBar(
-        actions: [
-          Padding(
-            padding: const EdgeInsets.only(right: 120.0), // Margen a la izquierda
-            child: IconButton(
-              icon: const Icon(Icons.refresh),
-              onPressed: () async {
-                await _refreshPets();
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text("Lista de mascotas actualizada")),
-                );
-              },
-            ),
-          ),
-        ],
-      ),
+      appBar: CustomAppBar(),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Column(
