@@ -4,16 +4,20 @@ import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
 
+const Color primaryColor = Color(
+  0xFFD0894B,
+); // Color marrón claro similar al de la imagen
+const Color iconColor = Colors.black;
+
 class CommentScreen extends StatefulWidget {
-  final int postId; // Recibe el ID del post
+  final int postId;
+
 
   const CommentScreen({super.key, required this.postId});
 
   @override
   _CommentScreenState createState() => _CommentScreenState();
 }
-
-
 
 class _CommentScreenState extends State<CommentScreen> {
   late SharedPreferences prefs;
@@ -22,6 +26,7 @@ class _CommentScreenState extends State<CommentScreen> {
   List<dynamic> comments = [];
   String errorMessage = '';
   TextEditingController commentController = TextEditingController();
+  final ScrollController _scrollController = ScrollController();
 
   @override
   void initState() {
@@ -30,13 +35,11 @@ class _CommentScreenState extends State<CommentScreen> {
   }
 
   Future<void> _initializePrefs() async {
-    prefs = await SharedPreferences.getInstance(); // Inicializa SharedPreferences
-    apiUrl = dotenv.env['API_URL'] ?? "192.168.1.133:8000"; // URL de la API
+    prefs = await SharedPreferences.getInstance();
+    apiUrl = dotenv.env['API_URL'] ?? "192.168.1.133:8000";
     _loadComments();
   }
 
-
-  // Cargar los comentarios del post
   Future<void> _loadComments() async {
     final token = prefs.getString('jwt_token');
     if (token == null) {
@@ -59,6 +62,16 @@ class _CommentScreenState extends State<CommentScreen> {
           comments = commentsData;
           isLoading = false;
         });
+        // Desplazarse al final después de cargar los comentarios
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (_scrollController.hasClients) {
+            _scrollController.animateTo(
+              _scrollController.position.maxScrollExtent,
+              duration: const Duration(milliseconds: 300),
+              curve: Curves.easeOut,
+            );
+          }
+        });
       } else {
         setState(() {
           isLoading = false;
@@ -73,7 +86,6 @@ class _CommentScreenState extends State<CommentScreen> {
     }
   }
 
-  // Enviar un nuevo comentario
   Future<void> _sendComment(String commentText) async {
     final token = prefs.getString('jwt_token');
     final userId = prefs.getInt('user_id');
@@ -99,8 +111,9 @@ class _CommentScreenState extends State<CommentScreen> {
       );
 
       if (response.statusCode == 201) {
-        _loadComments(); // Recargar los comentarios
-        commentController.clear(); // Limpiar el campo de texto
+        _loadComments();
+        commentController.clear();
+        FocusScope.of(context).unfocus(); // Ocultar teclado
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text("Error al enviar comentario")),
@@ -116,56 +129,162 @@ class _CommentScreenState extends State<CommentScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text("Comentarios")),
+      appBar: AppBar(
+        title: const Text("Comentarios"),
+        backgroundColor: primaryColor,
+        iconTheme: const IconThemeData(color: Colors.white),
+        titleTextStyle: const TextStyle(
+          color: Colors.white,
+          fontSize: 20,
+          fontWeight: FontWeight.bold,
+        ),
+      ),
       body: Column(
         children: [
           isLoading
-              ? const Center(child: CircularProgressIndicator())
+              ? const Expanded(
+            child: Center(
+              child: CircularProgressIndicator(
+                valueColor: AlwaysStoppedAnimation<Color>(primaryColor),
+              ),
+            ),
+          )
               : comments.isEmpty
-                  ? Center(
-                      child: Text(
-                        errorMessage.isEmpty
-                            ? "No hay comentarios aún"
-                            : errorMessage,
-                        style: const TextStyle(fontSize: 18),
-                      ),
-                    )
-                  : Expanded(
-                      child: ListView.builder(
-                        itemCount: comments.length,
-                        itemBuilder: (context, index) {
-                          final comment = comments[index];
-                          return ListTile(
-                            title: Text(comment['user'] != null && comment['user']['name'] != null
-                              ? comment['user']['name']
-                              : "Usuario desconocido"),
+              ? Expanded(
+            child: Center(
+              child: Text(
+                errorMessage.isEmpty
+                    ? "No hay comentarios aún"
+                    : errorMessage,
+                style: const TextStyle(
+                  fontSize: 18,
+                  color: Colors.grey,
+                ),
+              ),
+            ),
+          )
+              : Expanded(
+            child: ListView.builder(
+              controller: _scrollController,
+              padding: const EdgeInsets.symmetric(vertical: 8),
+              itemCount: comments.length,
+              itemBuilder: (context, index) {
+                final comment = comments[index];
+                final userName = comment['user'] != null &&
+                    comment['user']['name'] != null
+                    ? comment['user']['name']
+                    : "Usuario desconocido";
 
+                final commentDate = comment['createdAt'] != null
+                    ? DateTime.parse(comment['createdAt'])
+                    : null;
 
-                            subtitle: Text(comment['comment']),
-                          );
-                        },
-                      ),
+                return Card(
+                  margin: const EdgeInsets.symmetric(
+                      horizontal: 12, vertical: 4),
+                  elevation: 1,
+                  child: Padding(
+                    padding: const EdgeInsets.all(12),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            CircleAvatar(
+                              backgroundColor: primaryColor.withOpacity(0.2),
+                              child: const Icon(Icons.person,
+                                  color: iconColor),
+                            ),
+                            const SizedBox(width: 12),
+                            Column(
+                              crossAxisAlignment:
+                              CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  userName,
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                                if (commentDate != null)
+                                  Text(
+                                    _formatDate(commentDate),
+                                    style: const TextStyle(
+                                      fontSize: 12,
+                                      color: Colors.grey,
+                                    ),
+                                  ),
+                              ],
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                        Text(comment['comment'] ?? ''),
+                      ],
                     ),
-          Padding(
-            padding: const EdgeInsets.all(8.0),
+                  ),
+                );
+              },
+            ),
+          ),
+          Container(
+            decoration: BoxDecoration(
+              color: Colors.white,
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.grey.withOpacity(0.2),
+                  spreadRadius: 1,
+                  blurRadius: 3,
+                  offset: const Offset(0, -2),
+                ),
+              ],
+            ),
+            padding: const EdgeInsets.all(12),
             child: Row(
               children: [
                 Expanded(
                   child: TextField(
                     controller: commentController,
-                    decoration: const InputDecoration(
+                    decoration: InputDecoration(
                       hintText: "Escribe un comentario...",
-                      border: OutlineInputBorder(),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(24),
+                        borderSide: BorderSide(color: primaryColor),
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(24),
+                        borderSide: BorderSide(color: primaryColor),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(24),
+                        borderSide: BorderSide(color: primaryColor, width: 2),
+                      ),
+                      contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 16, vertical: 12),
                     ),
+                    maxLines: null,
+                    textInputAction: TextInputAction.send,
+                    onSubmitted: (text) {
+                      if (text.isNotEmpty) {
+                        _sendComment(text);
+                      }
+                    },
                   ),
                 ),
-                IconButton(
-                  icon: const Icon(Icons.send),
-                  onPressed: () {
-                    if (commentController.text.isNotEmpty) {
-                      _sendComment(commentController.text);
-                    }
-                  },
+                const SizedBox(width: 8),
+                Container(
+                  decoration: BoxDecoration(
+                    color: primaryColor,
+                    shape: BoxShape.circle,
+                  ),
+                  child: IconButton(
+                    icon: const Icon(Icons.send, color: Colors.white),
+                    onPressed: () {
+                      if (commentController.text.isNotEmpty) {
+                        _sendComment(commentController.text);
+                      }
+                    },
+                  ),
                 ),
               ],
             ),
@@ -173,5 +292,9 @@ class _CommentScreenState extends State<CommentScreen> {
         ],
       ),
     );
+  }
+
+  String _formatDate(DateTime date) {
+    return "${date.day}/${date.month}/${date.year} ${date.hour}:${date.minute.toString().padLeft(2, '0')}";
   }
 }

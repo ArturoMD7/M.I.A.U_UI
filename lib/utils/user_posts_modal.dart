@@ -12,6 +12,11 @@ class UserPostsModal extends StatefulWidget {
   _UserPostsModalState createState() => _UserPostsModalState();
 }
 
+const Color primaryColor = Color(
+  0xFFD0894B,
+); // Color marrón claro similar al de la imagen
+const Color iconColor = Colors.black;
+
 class _UserPostsModalState extends State<UserPostsModal> {
   List<dynamic> allPosts = [];
   List<dynamic> displayedPosts = [];
@@ -305,8 +310,10 @@ class _UserPostsModalState extends State<UserPostsModal> {
       length: 3,
       child: Scaffold(
         appBar: AppBar(
+          backgroundColor: primaryColor,
           title: const Text("Mis Publicaciones"),
           bottom: TabBar(
+            labelColor: Colors.white,
             onTap: _filterPosts,
             tabs: const [
               Tab(text: "Todas"),

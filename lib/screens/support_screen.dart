@@ -74,6 +74,7 @@ class SupportScreen extends StatelessWidget {
             },
             style: ElevatedButton.styleFrom(
               backgroundColor: primaryColor,
+              foregroundColor: Colors.white,
               minimumSize: Size(120, 50),
             ),
             child: Text("Más información"),

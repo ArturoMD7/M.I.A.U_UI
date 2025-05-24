@@ -13,6 +13,10 @@ class PetIdScreen extends StatefulWidget {
   @override
   _PetIdScreenState createState() => _PetIdScreenState();
 }
+const Color primaryColor = Color(
+  0xFFD0894B,
+); // Color marrón claro similar al de la imagen
+const Color iconColor = Colors.black;
 
 class _PetIdScreenState extends State<PetIdScreen> {
   late String _baseUrl;
@@ -275,7 +279,7 @@ class _PetIdScreenState extends State<PetIdScreen> {
         },
         icon: const Icon(Icons.add),
         label: const Text("Agregar Mascota"),
-        backgroundColor: Colors.blue,
+        backgroundColor: primaryColor,
       ),
     );
   }

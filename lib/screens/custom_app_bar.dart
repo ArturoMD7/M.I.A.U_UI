@@ -79,7 +79,8 @@ class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
                 },
               ),
               IconButton(
-                icon: Icon(Icons.qr_code, color: iconColor), // QR
+                icon: Icon(Icons.qr_code, color: iconColor,), // QR
+
                 onPressed: () {
                   Navigator.pushNamed(context, '/qr'); // Navegar a QR
                 },
@@ -91,7 +92,7 @@ class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
                 },
               ),
               IconButton(
-                icon: Icon(Icons.article, color: iconColor), // Documentos
+                icon: Icon(Icons.pets, color: iconColor), // Documentos
                 onPressed: () {
                   Navigator.pushNamed(
                     context,

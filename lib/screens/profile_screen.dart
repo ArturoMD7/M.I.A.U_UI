@@ -5,6 +5,11 @@ import 'package:miauuic/screens/custom_app_bar.dart';
 import 'package:miauuic/utils/user_posts_modal.dart';
 import 'package:miauuic/services/profile_provider.dart';
 
+const Color primaryColor = Color(
+  0xFFD0894B,
+);
+const Color iconColor = Colors.black;
+
 class ProfileScreen extends StatelessWidget {
   const ProfileScreen({super.key});
 
@@ -236,6 +241,7 @@ class _ProfileActions extends StatelessWidget {
         _ProfileButton(
           icon: Icons.article,
           text: "Mis publicaciones",
+          backgroundColor:primaryColor ,
           onPressed: () {
             showModalBottomSheet(
               context: context,
@@ -252,6 +258,7 @@ class _ProfileActions extends StatelessWidget {
         _ProfileButton(
           icon: Icons.edit,
           text: "Editar Información",
+          backgroundColor: primaryColor,
           onPressed: () {
             Navigator.push(
               context,
@@ -264,6 +271,7 @@ class _ProfileActions extends StatelessWidget {
         _ProfileButton(
           icon: Icons.message,
           text: "Ir a Mensajes",
+          backgroundColor: primaryColor,
           onPressed: () => Navigator.pushNamed(context, '/messages'),
         ),
         _ProfileButton(
@@ -413,6 +421,7 @@ class _EditProfileScreenState extends State<_EditProfileScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text("Editar Información"),
+        backgroundColor: primaryColor,
         actions: [
           if (_isLoading)
             const Padding(
@@ -474,6 +483,11 @@ class _EditProfileScreenState extends State<_EditProfileScreen> {
               ),
               const SizedBox(height: 20),
               ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  minimumSize: const Size(double.infinity, 50),
+                  backgroundColor: primaryColor,
+                  foregroundColor: Colors.white,
+                ),
                 onPressed: _isLoading ? null : _updateProfile,
                 child: const Text("Guardar Cambios"),
               ),

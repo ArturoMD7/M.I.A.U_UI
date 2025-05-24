@@ -1052,6 +1052,8 @@ class _AdoptScreenState extends State<AdoptScreen> {
       ),
         floatingActionButton: _showFab
             ? FloatingActionButton.extended(
+          backgroundColor: primaryColor,
+
           onPressed: _createPostWithExistingPet,
           label: const Text("Publicar mascota"),
           icon: const Icon(Icons.add),

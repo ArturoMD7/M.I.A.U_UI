@@ -325,7 +325,8 @@ class _QRScreenState extends State<QRScreen> {
                                       ElevatedButton(
                                         onPressed: () => generateQR(petId),
                                         style: ElevatedButton.styleFrom(
-                                          backgroundColor: Colors.blue,
+                                          backgroundColor: primaryColor,
+                                          foregroundColor: Colors.black,
                                         ),
                                         child: const Text(
                                           "Generar QR",

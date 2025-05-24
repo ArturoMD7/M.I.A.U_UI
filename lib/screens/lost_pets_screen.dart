@@ -23,6 +23,11 @@ class LostPetsScreen extends StatefulWidget {
   _LostPetsScreenState createState() => _LostPetsScreenState();
 }
 
+const Color primaryColor = Color(
+  0xFFD0894B,
+); // Color marrón claro similar al de la imagen
+const Color iconColor = Colors.black;
+
 class _LostPetsScreenState extends State<LostPetsScreen> {
   // Variables de estado
   List<dynamic> posts = [];
@@ -779,6 +784,7 @@ class _LostPetsScreenState extends State<LostPetsScreen> {
       ),
       floatingActionButton: _showFab
           ? FloatingActionButton.extended(
+        backgroundColor: primaryColor,
         onPressed: _createLostPetPost,
         label: const Text("Reportar mascota perdida"),
         icon: const Icon(Icons.add),
