@@ -24,6 +24,7 @@ class _CreatePetScreenState extends State<CreatePetScreen> {
   int? _selectedStatus;
   File? _selectedImage;
   bool _isLoading = false;
+  int? _selectedAge;
 
   late final String _baseUrl;
   final List<String> _sizeOptions = ['Pequeño', 'Mediano', 'Grande'];
@@ -33,11 +34,19 @@ class _CreatePetScreenState extends State<CreatePetScreen> {
     2: 'Buscando familia'
   };
 
+  final Map<int, String> _ageOptions = {
+    0: 'Cachorro (0-1)',
+    1: 'Joven (2-6)',  
+    2: 'Adulto (+6)'
+  };
+
   @override
   void initState() {
     super.initState();
     _baseUrl = dotenv.env['API_URL'] ?? 'http://192.168.1.133:8000/api';
-    _selectedStatus = 2; // Default: Buscando familia
+    //Default dropdowns
+    _selectedStatus = 2; 
+    _selectedAge = 0;
   }
 
   Future<void> _submitForm() async {
@@ -149,17 +158,18 @@ class _CreatePetScreenState extends State<CreatePetScreen> {
                 ),
                 const SizedBox(height: 16),
 
-                // Campo Edad
-                TextFormField(
-                  controller: _ageController,
+                DropdownButtonFormField<int>(
+                  value: _selectedAge,
                   decoration: const InputDecoration(labelText: "Edad*"),
-                  validator: (value) {
-                    if (value == null || value.isEmpty) return "Campo requerido";
-                    if (value.length > 50) return "Máximo 50 caracteres";
-                    return null;
-                  },
+                  items: _ageOptions.entries.map((entry) {
+                    return DropdownMenuItem<int>(
+                      value: entry.key,
+                      child: Text(entry.value),
+                    );
+                  }).toList(),
+                  onChanged: (value) => setState(() => _selectedAge = value),
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(height: 20),
 
                 // Campo Raza
                 TextFormField(
@@ -213,19 +223,6 @@ class _CreatePetScreenState extends State<CreatePetScreen> {
                   onChanged: (value) => setState(() => _selectedStatus = value),
                 ),
                 const SizedBox(height: 20),
-
-                // Selector de Imagen
-                ElevatedButton.icon(
-                  icon: const Icon(Icons.image),
-                  label: const Text("Seleccionar Imagen"),
-                  onPressed: _pickImage,
-                ),
-                if (_selectedImage != null)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 10),
-                    child: Image.file(_selectedImage!, height: 100),
-                  ),
-                const SizedBox(height: 30),
 
                 // Botón de Guardar
                 ElevatedButton(

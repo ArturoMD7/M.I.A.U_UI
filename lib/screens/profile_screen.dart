@@ -59,7 +59,6 @@ class _ProfileContent extends StatelessWidget {
             textAlign: TextAlign.center,
           ),
           const SizedBox(height: 20),
-          _ProfileAvatar(state: state, provider: provider),
           const SizedBox(height: 10),
           Text(
             state.userInfo?['name'] ?? 'Nombre no disponible',
@@ -89,86 +88,6 @@ class _ProfileContent extends StatelessWidget {
   }
 }
 
-class _ProfileAvatar extends StatelessWidget {
-  final ProfileState state;
-  final ProfileProvider provider;
-
-  const _ProfileAvatar({
-    required this.state,
-    required this.provider,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: provider.pickImage,
-      onLongPress: () {
-        if (state.profilePhotoUrl != null) {
-          showModalBottomSheet(
-            context: context,
-            builder: (context) => Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                ListTile(
-                  leading: const Icon(Icons.camera_alt),
-                  title: const Text('Cambiar foto'),
-                  onTap: () {
-                    Navigator.pop(context);
-                    provider.pickImage();
-                  },
-                ),
-                ListTile(
-                  leading: const Icon(Icons.delete, color: Colors.red),
-                  title: const Text('Eliminar foto', 
-                      style: TextStyle(color: Colors.red)),
-                  onTap: () {
-                    Navigator.pop(context);
-                    // provider.deleteProfilePhoto();
-                  },
-                ),
-              ],
-            ),
-          );
-        }
-      },
-      child: Stack(
-        alignment: Alignment.bottomRight,
-        children: [
-          CircleAvatar(
-            radius: 50,
-            backgroundImage: state.profilePhotoUrl != null
-                ? NetworkImage(
-                    state.profilePhotoUrl!,
-                    headers: const {"Cache-Control": "no-cache"},
-                  ) as ImageProvider
-                : const AssetImage("assets/images/default_profile.jpg") as ImageProvider,
-          ),
-          Container(
-            padding: const EdgeInsets.all(6),
-            decoration: BoxDecoration(
-              color: Theme.of(context).primaryColor,
-              shape: BoxShape.circle,
-            ),
-            child: const Icon(
-              Icons.camera_alt,
-              size: 20,
-              color: Colors.white,
-            ),
-          ),
-          if (provider.state.isLoading)
-            Positioned.fill(
-              child: Container(
-                color: Colors.black26,
-                child: const Center(
-                  child: CircularProgressIndicator(),
-                ),
-              ),
-            ),
-        ],
-      ),
-    );
-  }
-}
 
 class _ThemeSwitch extends StatelessWidget {
   @override

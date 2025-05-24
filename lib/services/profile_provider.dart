@@ -8,13 +8,11 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 class ProfileState {
-  final String? profilePhotoUrl;
   final bool isLoading;
   final Map<String, dynamic>? userInfo;
   final String? errorMessage;
 
   ProfileState({
-    this.profilePhotoUrl,
     this.isLoading = false,
     this.userInfo,
     this.errorMessage,
@@ -27,7 +25,6 @@ class ProfileState {
     String? errorMessage,
   }) {
     return ProfileState(
-      profilePhotoUrl: profilePhotoUrl ?? this.profilePhotoUrl,
       isLoading: isLoading ?? this.isLoading,
       userInfo: userInfo ?? this.userInfo,
       errorMessage: errorMessage ?? this.errorMessage,

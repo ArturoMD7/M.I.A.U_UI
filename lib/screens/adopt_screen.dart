@@ -134,14 +134,19 @@ class _AdoptScreenState extends State<AdoptScreen> {
 
   Future<void> _loadMunicipios(String estadoNombre) async {
     if (!mounted) return;
-
-    _dialogSetState(() {
-      loadingMunicipios = true;
-      municipios = [];
-      selectedMunicipio = null;
-    });
+      _dialogSetState(() {
+        loadingMunicipios = true;
+        municipios = [];
+        selectedMunicipio = null;
+      });
 
     try {
+      if (!mounted) return;
+      _dialogSetState(() {
+        loadingMunicipios = true;
+        municipios = [];
+        selectedMunicipio = null;
+      });
       // 1. Obtener ID del estado
       final estadosResponse = await http.get(
         Uri.parse('https://api.tau.com.mx/dipomex/v1/estados'),
@@ -203,21 +208,35 @@ class _AdoptScreenState extends State<AdoptScreen> {
       } else {
         throw Exception('Error en respuesta de municipios: ${municipiosData['message']}');
       }
+
+
+        // Verificar nuevamente antes de la última actualización
+      if (!mounted) return;
+      _dialogSetState(() {
+        municipios = municipiosData;
+        loadingMunicipios = false;
+      });
     } catch (e) {
+      if (!mounted) return;
       _dialogSetState(() {
         loadingMunicipios = false;
       });
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Error al cargar municipios: $e')),
       );
     }
+    
   }
 
   Future<void> fetchData() async {
-    setState(() {
-      isLoading = true;
-      errorMessage = '';
-    });
+     if (!mounted) return;
+      setState(() {
+        isLoading = true;
+        errorMessage = '';
+      });
+
+   
 
     try {
       final SharedPreferences prefs = await SharedPreferences.getInstance();
@@ -774,15 +793,6 @@ class _AdoptScreenState extends State<AdoptScreen> {
                 padding: const EdgeInsets.all(12),
                 child: Row(
                   children: [
-                    CircleAvatar(
-                      radius: 20,
-                      backgroundImage: user != null && user['profilePhoto'] != null
-                          ? CachedNetworkImageProvider(
-                        "$mediaUrl${user['profilePhoto']}",
-                        headers: const {"Cache-Control": "no-cache"},
-                      )
-                          : const AssetImage("assets/images/default_profile.jpg") as ImageProvider,
-                    ),
                     const SizedBox(width: 10),
                     Expanded(
                       child: Column(
