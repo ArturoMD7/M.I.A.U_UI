@@ -1,8 +1,14 @@
 import 'package:flutter/material.dart';
+import 'package:googleapis/eventarc/v1.dart';
 import 'package:http/http.dart' as http;
+import 'package:miauuic/services/pet_provider.dart';
 import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:provider/provider.dart' as prov;
+
+
+const Color primaryColor = Color(0xFFD68F5E);
 
 class AddPetScreen extends StatefulWidget {
   final Map<String, dynamic>? petToEdit;
@@ -43,33 +49,41 @@ class _AddPetScreenState extends State<AddPetScreen> {
     'Otro': 'Otro'
   };
 
-  @override
-  void initState() {
-    super.initState();
-    _baseUrl = dotenv.env['API_URL'] ?? 'http://192.168.1.133:8000/api';
+@override
+void initState() {
+  super.initState();
+  _baseUrl = dotenv.env['API_URL'] ?? 'http://192.168.1.133:8000/api';
+  
+  if (widget.petToEdit != null) {
+    _nameController.text = widget.petToEdit!['name'] ?? '';
+    _selectedSize = widget.petToEdit!['size'];
+    _detailsController.text = widget.petToEdit!['petDetails'] ?? '';
+    _selectedStatus = widget.petToEdit!['statusAdoption'];
     
-    if (widget.petToEdit != null) {
-      _nameController.text = widget.petToEdit!['name'] ?? '';
-      _selectedSize = widget.petToEdit!['size'];
-      _detailsController.text = widget.petToEdit!['petDetails'] ?? '';
-      _selectedStatus = widget.petToEdit!['statusAdoption'];
-      
-      // Manejo seguro para la edad
-      _selectedAge = _ageOptions.containsKey(widget.petToEdit!['age'])
-          ? widget.petToEdit!['age']
-          : null;
-    
-      
-      // Manejo seguro para el tipo
-      final petType = widget.petToEdit!['type'] is int 
-          ? widget.petToEdit!['type'] 
-          : int.tryParse(widget.petToEdit!['type'].toString());
-      _selectedType = _typeOptions.containsKey(petType) ? petType : null;
+    // Manejo de la edad (convertir de número a texto si es necesario)
+    if (widget.petToEdit!['age'] is int) {
+      _selectedAge = {
+        0: 'Cachorro',
+        1: 'Joven',
+        2: 'Adulto',
+      }[widget.petToEdit!['age']] ?? 'Cachorro';
     } else {
-      _selectedStatus = 2; // Default: Buscando familia
-      _selectedAge = _ageOptions.keys.first; // Valor por defecto
+      _selectedAge = widget.petToEdit!['age']?.toString() ?? 'Cachorro';
     }
+    
+    // Manejo del tipo (convertir de número a texto si es necesario)
+    if (widget.petToEdit!['breed'] is int) {
+      final breedIndex = widget.petToEdit!['breed'];
+      _selectedType = _typeOptions.keys.toList().elementAtOrNull(breedIndex) ?? 'Perro';
+    } else {
+      _selectedType = widget.petToEdit!['breed']?.toString() ?? 'Perro';
+    }
+  } else {
+    _selectedStatus = 2; // Default: Buscando familia
+    _selectedAge = _ageOptions.keys.first; // Valor por defecto
+    _selectedType = _typeOptions.keys.first; // Valor por defecto
   }
+}
 
   Future<String?> _getToken() async {
     final prefs = await SharedPreferences.getInstance();
@@ -81,89 +95,104 @@ class _AddPetScreenState extends State<AddPetScreen> {
     return prefs.getInt('user_id');
   }
 
-  Future<void> _submitForm() async {
-    if (!_formKey.currentState!.validate()) return;
 
-    final token = await _getToken();
-    final userId = await _getUserId();
+  // En el método _submitForm de AddPetScreen
+Future<void> _submitForm() async {
+  if (!_formKey.currentState!.validate()) return;
 
-    if (token == null || userId == null) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Debes iniciar sesión")),
-      );
-      return;
-    }
+  final token = await _getToken();
+  final userId = await _getUserId();
 
-    setState(() => _isLoading = true);
-
-    try {
-      final petData = {
-        "name": _nameController.text,
-        "size": _selectedSize,
-        "petDetails": _detailsController.text.isEmpty ? null : _detailsController.text,
-        "userId": userId,
-        "statusAdoption": _selectedStatus,
-        "age": _selectedAge,
-        "breed": _selectedType,
-      };
-
-      // Eliminar campos nulos
-      petData.removeWhere((key, value) => value == null);
-
-      final isEditing = widget.petToEdit != null;
-      final url = isEditing 
-          ? "$_baseUrl/pets/${widget.petToEdit!['id']}/" 
-          : "$_baseUrl/pets/";
-
-      final response = isEditing
-          ? await http.put(
-              Uri.parse(url),
-              headers: {
-                "Content-Type": "application/json",
-                "Authorization": "Bearer $token",
-              },
-              body: jsonEncode(petData),
-            )
-          : await http.post(
-              Uri.parse(url),
-              headers: {
-                "Content-Type": "application/json",
-                "Authorization": "Bearer $token",
-              },
-              body: jsonEncode(petData),
-            );
-
-      if ((isEditing && response.statusCode != 200) || 
-          (!isEditing && response.statusCode != 201)) {
-        throw Exception("Error: ${response.body}");
-      }
-
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(isEditing 
-              ? "Mascota actualizada exitosamente" 
-              : "Mascota creada exitosamente"),
-        ),
-      );
-      Navigator.pop(context, true);
-    } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Error: ${e.toString()}")),
-      );
-    } finally {
-      setState(() => _isLoading = false);
-    }
+  if (token == null || userId == null) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text("Debes iniciar sesión")),
+    );
+    return;
   }
 
+  setState(() => _isLoading = true);
+
+  try {
+    final petData = {
+      "name": _nameController.text,
+      "size": _selectedSize,
+      "petDetails": _detailsController.text.isEmpty ? null : _detailsController.text,
+      "userId": userId,
+      "statusAdoption": _selectedStatus,
+      "age": _selectedAge, // Enviamos directamente el texto
+      "breed": _selectedType, // Enviamos directamente el texto
+    };
+
+    // Eliminar campos nulos
+    petData.removeWhere((key, value) => value == null);
+
+    final isEditing = widget.petToEdit != null;
+    final url = isEditing 
+        ? "$_baseUrl/pets/${widget.petToEdit!['id']}/" 
+        : "$_baseUrl/pets/";
+
+    final response = isEditing
+        ? await http.put(
+            Uri.parse(url),
+            headers: {
+              "Content-Type": "application/json",
+              "Authorization": "Bearer $token",
+            },
+            body: jsonEncode(petData),
+          )
+        : await http.post(
+            Uri.parse(url),
+            headers: {
+              "Content-Type": "application/json",
+              "Authorization": "Bearer $token",
+            },
+            body: jsonEncode(petData),
+          );
+
+    if ((isEditing && response.statusCode != 200) || 
+        (!isEditing && response.statusCode != 201)) {
+      throw Exception("Error: ${response.body}");
+    }
+
+    final responseData = json.decode(response.body);
+    
+    // Actualizar el estado local
+    final petProvider = prov.Provider.of<PetProvider>(context, listen: false);
+    if (isEditing) {
+      petProvider.updatePet(responseData);
+    } else {
+      petProvider.addPet(responseData);
+    }
+
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(isEditing 
+            ? "Mascota actualizada exitosamente" 
+            : "Mascota creada exitosamente"),
+      ),
+    );
+    Navigator.pop(context, true);
+  } catch (e) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text("Error: ${e.toString()}")),
+    );
+  } finally {
+    setState(() => _isLoading = false);
+  }
+}
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      
       appBar: AppBar(
         title: Text(widget.petToEdit != null ? "Editar Mascota" : "Agregar Mascota"),
+        backgroundColor: primaryColor,
       ),
+      
+      
       
       body: Padding(
         padding: const EdgeInsets.all(16.0),
@@ -228,17 +257,6 @@ class _AddPetScreenState extends State<AddPetScreen> {
                 ),
                 const SizedBox(height: 16),
 
-                TextFormField(
-                  controller: _detailsController,
-                  decoration: const InputDecoration(
-                    labelText: "Detalles",
-                    hintText: "Detalles adicionales sobre la mascota",
-                  ),
-                  maxLines: 3,
-                  maxLength: 254,
-                ),
-                const SizedBox(height: 16),
-
                 // Dropdown de Estado
                 DropdownButtonFormField<int>(
                   value: _selectedStatus,
@@ -254,8 +272,23 @@ class _AddPetScreenState extends State<AddPetScreen> {
                 ),
                 const SizedBox(height: 20),
 
+                TextFormField(
+                  controller: _detailsController,
+                  decoration: const InputDecoration(
+                    labelText: "Detalles",
+                    hintText: "Detalles adicionales sobre la mascota",
+                  ),
+                  maxLines: 3,
+                  maxLength: 254,
+                ),
+                const SizedBox(height: 16),
+
                 ElevatedButton(
                   onPressed: _isLoading ? null : _submitForm,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: primaryColor,
+                    foregroundColor: Colors.white,
+                  ),
                   child: _isLoading 
                       ? const CircularProgressIndicator(color: Colors.white)
                       : const Text("Guardar Mascota"),

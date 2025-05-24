@@ -13,6 +13,8 @@ import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'comment_screen.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 
+const Color primaryColor = Color(0xFFD68F5E);
+
 class AdoptScreen extends StatefulWidget {
   final int? initialPostId;
   final bool isModal;
@@ -1002,9 +1004,9 @@ class _AdoptScreenState extends State<AdoptScreen> {
                   },
                 ),
                 DropdownButton<String>(
-                  hint: const Text("Raza"),
+                  hint: const Text("Tipo"),
                   value: selectedBreed,
-                  items: ["Labrador", "Siamés", "Golden Retriever", "Persa", "Mestizo"].map((String value) {
+                  items: ["Perro", "Gato", "Roedor", "Ave", "Otro"].map((String value) {
                     return DropdownMenuItem<String>(
                       value: value,
                       child: Text(value),
@@ -1026,6 +1028,10 @@ class _AdoptScreenState extends State<AdoptScreen> {
                       posts = applyFilters(allPosts);
                     });
                   },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: primaryColor,
+                    foregroundColor: Colors.white,
+                  ),
                   child: const Text("Limpiar filtros"),
                 ),
               ],
@@ -1044,7 +1050,7 @@ class _AdoptScreenState extends State<AdoptScreen> {
                 : RefreshIndicator(
               onRefresh: fetchData,
               child: ListView.builder(
-                controller: _scrollController, // Añade el controller aquí
+                controller: _scrollController, 
                 padding: const EdgeInsets.all(10),
                 itemCount: posts.length,
                 itemBuilder: (context, index) => _buildPostCard(posts[index]),

@@ -55,9 +55,11 @@ class _PetIdScreenState extends State<PetIdScreen> {
     return prefs.getString('jwt_token');
   }
 
-  Future<int?> _getUserId() async {
-    final prefs = await SharedPreferences.getInstance();
-    return prefs.getInt('user_id');
+  Future<void> _refreshPets() async {
+    final token = await _getToken();
+    if (token != null) {
+      await Provider.of<PetProvider>(context, listen: false).fetchPets(token);
+    }
   }
 
   Future<void> _deletePet(BuildContext context, int petId) async {
@@ -95,7 +97,8 @@ class _PetIdScreenState extends State<PetIdScreen> {
       if (response.statusCode == 204) {
         if (!mounted) return;
         
-        await Provider.of<PetProvider>(context, listen: false).fetchPets(token);
+        // Actualiza el estado local primero
+        Provider.of<PetProvider>(context, listen: false).removePet(petId);
         
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text("Mascota eliminada exitosamente")),
@@ -111,10 +114,25 @@ class _PetIdScreenState extends State<PetIdScreen> {
     }
   }
 
-void _showPetDetails(BuildContext context, Map<String, dynamic> pet) {
-    final statusText = _statusTexts[pet['statusAdoption']] ?? 'Desconocido';
-    final breedText = pet['breed'] ?? 'Desconocido'; // Mostramos directamente el breed
-    final ageText = _ageTexts[pet['age']] ?? pet['age'] ?? 'Desconocido'; // Mapeamos la edad si está en nuestro mapa
+
+  void _showPetDetails(BuildContext context, Map<String, dynamic> pet) {
+    final statusText = {
+      0: 'Perdido',
+      1: 'Adoptado',
+      2: 'Buscando familia',
+    }[pet['statusAdoption']] ?? 'Desconocido';
+
+    final ageText = {
+      0: 'Cachorro',
+      1: 'Joven',
+      2: 'Adulto',
+    }[pet['age']] ?? pet['age']?.toString() ?? 'Desconocido';
+
+    final statusColor = {
+      0: Colors.red,
+      1: Colors.green,
+      2: Colors.orange,
+    }[pet['statusAdoption']] ?? Colors.grey;
 
     showDialog(
       context: context,
@@ -137,8 +155,8 @@ void _showPetDetails(BuildContext context, Map<String, dynamic> pet) {
                   ),
                 const SizedBox(height: 16),
                 _buildDetailRow("Nombre:", pet['name']),
-                _buildDetailRow("Raza:", breedText), // Cambiado de "Tipo" a "Raza"
-                _buildDetailRow("Edad:", ageText),
+                _buildDetailRow("Edad:", pet['age']),
+                _buildDetailRow("Raza:", pet['breed']),
                 _buildDetailRow("Tamaño:", pet['size']),
                 _buildDetailRow("Estado:", statusText),
                 _buildDetailRow("Detalles:", pet['petDetails'] ?? 'Sin detalles'),
@@ -171,7 +189,7 @@ void _showPetDetails(BuildContext context, Map<String, dynamic> pet) {
     );
   }
 
-  Widget _buildDetailRow(String label, String? value) {
+  Widget _buildDetailRow(String label, dynamic value) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4.0),
       child: Row(
@@ -179,7 +197,7 @@ void _showPetDetails(BuildContext context, Map<String, dynamic> pet) {
         children: [
           Text(label, style: const TextStyle(fontWeight: FontWeight.bold)),
           const SizedBox(width: 8),
-          Expanded(child: Text(value ?? 'No disponible')),
+          Expanded(child: Text(value?.toString() ?? 'No disponible')),
         ],
       ),
     );
@@ -202,7 +220,22 @@ void _showPetDetails(BuildContext context, Map<String, dynamic> pet) {
     }
 
     return Scaffold(
-      appBar: CustomAppBar(),
+      appBar: CustomAppBar(
+        actions: [
+          Padding(
+            padding: const EdgeInsets.only(right: 120.0), // Margen a la izquierda
+            child: IconButton(
+              icon: const Icon(Icons.refresh),
+              onPressed: () async {
+                await _refreshPets();
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text("Lista de mascotas actualizada")),
+                );
+              },
+            ),
+          ),
+        ],
+      ),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Column(
@@ -263,9 +296,13 @@ void _showPetDetails(BuildContext context, Map<String, dynamic> pet) {
   }
 
   Widget _buildPetCard(BuildContext context, Map<String, dynamic> pet) {
+    final ageText = {
+      0: 'Cachorro',
+      1: 'Joven',
+      2: 'Adulto',
+    }[pet['age']] ?? pet['age']?.toString() ?? 'Desconocido';
     final statusText = _statusTexts[pet['statusAdoption']] ?? 'Desconocido';
     final breedText = pet['breed'] ?? 'Desconocido'; // Mostramos directamente el breed
-    final ageText = _ageTexts[pet['age']] ?? pet['age'] ?? 'Desconocido'; // Mapeamos la edad si está en nuestro mapa
     final statusColor = _statusColors[pet['statusAdoption']] ?? Colors.grey;
 
     return Card(

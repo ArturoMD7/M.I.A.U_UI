@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import '../services/pet_service.dart';
+import '../screens/add_pet_screen.dart';
 
 class PetProvider with ChangeNotifier {
   final PetService _petService;
@@ -10,6 +11,13 @@ class PetProvider with ChangeNotifier {
   DateTime? _lastFetchTime;
   String? _errorMessage;
   String? _currentToken;
+  final Map<String, String> _typeOptions = {
+    'Perro': 'Perro',
+    'Gato': 'Gato', 
+    'Ave': 'Ave',
+    'Roedor': 'Roedor',
+    'Otro': 'Otro'
+  };
 
   // Tiempo mínimo entre fetches (5 segundos)
   static const Duration _minFetchInterval = Duration(seconds: 5); 
@@ -20,6 +28,11 @@ class PetProvider with ChangeNotifier {
   bool get isLoading => _isLoading;
   bool get hasLoaded => _hasLoaded;
   String? get errorMessage => _errorMessage;
+
+  void removePet(int petId) {
+    _pets.removeWhere((pet) => pet['id'] == petId);
+    notifyListeners(); // Esto es crucial para actualizar la UI
+  }
 
   Future<void> fetchPets(String token, {bool forceRefresh = false}) async {
     // 1. Validar si ya está cargando o no necesita recargar
@@ -59,22 +72,48 @@ class PetProvider with ChangeNotifier {
     }
   }
 
-  Future<void> addPet(Map<String, dynamic> petData, String token) async {
-    _isLoading = true;
-    _errorMessage = null;
-    notifyListeners();
+  
+void addPet(Map<String, dynamic> newPet) {
+  // Convertir edad de número a texto si es necesario
+  if (newPet['age'] is int) {
+    newPet['age'] = {
+      0: 'Cachorro',
+      1: 'Joven',
+      2: 'Adulto',
+    }[newPet['age']] ?? 'Cachorro';
+  }
+  
+  // Convertir breed de número a texto si es necesario
+  if (newPet['breed'] is int) {
+    final breedIndex = newPet['breed'];
+    newPet['breed'] = _typeOptions.keys.toList().elementAtOrNull(breedIndex) ?? 'Perro';
+  }
+  
+  _pets.insert(0, newPet);
+  notifyListeners();
+}
 
-    try {
-      await _petService.addPet(petData, token);
-      await fetchPets(token, forceRefresh: true);
-    } catch (e) {
-      _errorMessage = _parseError(e);
-    } finally {
-      _isLoading = false;
-      notifyListeners();
-    }
+void updatePet(Map<String, dynamic> updatedPet) {
+  // Misma conversión que en addPet
+  if (updatedPet['age'] is int) {
+    updatedPet['age'] = {
+      0: 'Cachorro',
+      1: 'Joven',
+      2: 'Adulto',
+    }[updatedPet['age']] ?? 'Cachorro';
+  }
+  
+  if (updatedPet['breed'] is int) {
+    final breedIndex = updatedPet['breed'];
+    updatedPet['breed'] = _typeOptions.keys.toList().elementAtOrNull(breedIndex) ?? 'Perro';
   }
 
+  final index = _pets.indexWhere((pet) => pet['id'] == updatedPet['id']);
+  if (index != -1) {
+    _pets[index] = updatedPet;
+    notifyListeners();
+  }
+}
   String _parseError(dynamic error) {
     if (error is Exception) {
       return error.toString().replaceFirst('Exception: ', '');

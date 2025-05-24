@@ -9,18 +9,21 @@ const Color iconColor = Colors.black;
 class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
   @override
   final Size preferredSize = Size.fromHeight(100);
+  final List<Widget>? actions;
+  final Widget? leading;
 
-  CustomAppBar({super.key}); // Altura de la barra
+  CustomAppBar({super.key, this.actions, this.leading}); // Altura de la barra
 
   @override
   Widget build(BuildContext context) {
     return AppBar(
       backgroundColor: primaryColor,
+      actions: actions,
+      leading: leading,
       elevation: 0,
       flexibleSpace: Column(
         mainAxisAlignment: MainAxisAlignment.end,
         children: [
-          // Fila superior (Mensajes y Notificaciones)
           Row(
             mainAxisAlignment: MainAxisAlignment.end,
             children: [
