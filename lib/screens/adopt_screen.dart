@@ -337,17 +337,8 @@ class _AdoptScreenState extends State<AdoptScreen> {
         return false;
       }
       
-      if (selectedAge != null) {
-        final ageStr = pet['age'].toLowerCase();
-        final age = int.tryParse(ageStr.replaceAll(RegExp(r'[^0-9]'), '')) ?? 0;
-        
-        if (selectedAge == 'Cachorro' && (age < 0 || age > 1)) {
-          return false;
-        } else if (selectedAge == 'Joven' && (age < 2 || age > 6)) {
-          return false;
-        } else if (selectedAge == 'Adulto' && age <= 6) {
-          return false;
-        }
+      if (selectedAge != null && !pet['age'].toLowerCase().contains(selectedAge!.toLowerCase()) ) {
+        return false;
       }
       
       return true;
@@ -848,7 +839,7 @@ class _AdoptScreenState extends State<AdoptScreen> {
                       ),
                       const SizedBox(height: 4),
                       Text('Edad: ${pet['age'] ?? 'Desconocida'}'),
-                      Text('Raza: ${pet['breed'] ?? 'Desconocida'}'),
+                      Text('Tipo: ${pet['breed'] ?? 'Desconocida'}'),
                       Text('Tamaño: ${pet['size'] ?? 'Desconocido'}'),
                       if (post['city'] != null || post['state'] != null)
                         Text(
@@ -974,7 +965,7 @@ class _AdoptScreenState extends State<AdoptScreen> {
                 DropdownButton<String>(
                   hint: const Text("Tamaño"),
                   value: selectedSize,
-                  items: ["Pequeño", "Mediano", "Grande"].map((String value) {
+                  items: ["Pequeno", "Mediano", "Grande"].map((String value) {
                     return DropdownMenuItem<String>(
                       value: value,
                       child: Text(value),

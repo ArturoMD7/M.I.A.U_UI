@@ -109,7 +109,7 @@ class PostWidget extends StatelessWidget {
                   ),
                   const SizedBox(height: 4),
                   Text('Edad: ${pet['age'] ?? 'Desconocida'}'),
-                  Text('Raza: ${pet['breed'] ?? 'Desconocida'}'),
+                  Text('Tipo: ${pet['breed'] ?? 'Desconocida'}'),
                   Text('Tamaño: ${pet['size'] ?? 'Desconocido'}'),
                   if (post['city'] != null || post['state'] != null)
                     Text(
