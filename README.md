@@ -1,16 +1,26 @@
-# miauuic
+# M.I.A.U. UI
 
-A new Flutter project.
+Un proyecto móvil desarrollado en Flutter sobre mascotas perdidas. Esta aplicación se conecta a una API REST (Backend en Django) para manejar el flujo de datos de la plataforma.
 
-## Getting Started
+## 🛠️ Requisitos Previos
 
-This project is a starting point for a Flutter application.
+Antes de comenzar, asegúrate de tener instalado lo siguiente en tu sistema:
+* [Flutter SDK](https://docs.flutter.dev/get-started/install) (Versión estable más reciente).
+* Un emulador configurado (Android/iOS) o un dispositivo físico conectado.
+* El backend (Django API) en ejecución de forma local o remota.
 
-A few resources to get you started if this is your first Flutter project:
+## ⚙️ Configuración del Entorno (.env)
 
-- [Lab: Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Cookbook: Useful Flutter samples](https://docs.flutter.dev/cookbook)
+Este proyecto utiliza el paquete `flutter_dotenv` para manejar variables de entorno y no exponer rutas o credenciales directamente en el código base.
 
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+1. En la raíz del proyecto, busca el archivo llamado `.env.example`.
+2. Crea una copia de este archivo y renómbralo a `.env`.
+3. Abre el nuevo archivo `.env` y asigna los valores correspondientes a tu entorno local o de producción:
+
+```env
+# URL base de tu backend (Asegúrate de no incluir un '/' al final si tu código no lo requiere)
+API_URL=http://localhost:8765/api
+# URL para cargar las imágenes y archivos multimedia
+MEDIA_URL=http://localhost:8765
+# ID del cliente
+CLIENT_ID=tu_client_id_aqui

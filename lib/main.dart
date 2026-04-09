@@ -1,6 +1,4 @@
-// main.dart
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart';
 import 'package:miauuic/screens/recovery_password_screen.dart';
 import 'screens/add_pet_screen.dart';
 import 'package:provider/provider.dart';
@@ -17,13 +15,14 @@ import 'screens/messages_screen.dart';
 import 'services/pet_provider.dart';
 import 'services/theme_provider.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
-import 'dart:ui' as ui;
 import 'package:intl/date_symbol_data_local.dart';
 
-
 void main() async {
+  WidgetsFlutterBinding.ensureInitialized(); //Al usar await esta linea es obligatoria de usar
+
   await dotenv.load(fileName: ".env");
-  await initializeDateFormatting('es', null); // Aquí cargas el idioma español
+  await initializeDateFormatting('es', null);
+
   runApp(const MyApp());
 }
 
@@ -59,34 +58,98 @@ class ColorBlindnessFilter extends StatelessWidget {
     switch (type) {
       case ColorBlindnessType.protanopia:
         filterMatrix = [
-          0.567, 0.433, 0.000, 0, 0,
-          0.558, 0.442, 0.000, 0, 0,
-          0.000, 0.242, 0.758, 0, 0,
-          0, 0, 0, 1, 0,
+          0.567,
+          0.433,
+          0.000,
+          0,
+          0,
+          0.558,
+          0.442,
+          0.000,
+          0,
+          0,
+          0.000,
+          0.242,
+          0.758,
+          0,
+          0,
+          0,
+          0,
+          0,
+          1,
+          0,
         ];
         break;
       case ColorBlindnessType.deuteranopia:
         filterMatrix = [
-          0.625, 0.375, 0.000, 0, 0,
-          0.700, 0.300, 0.000, 0, 0,
-          0.000, 0.300, 0.700, 0, 0,
-          0, 0, 0, 1, 0,
+          0.625,
+          0.375,
+          0.000,
+          0,
+          0,
+          0.700,
+          0.300,
+          0.000,
+          0,
+          0,
+          0.000,
+          0.300,
+          0.700,
+          0,
+          0,
+          0,
+          0,
+          0,
+          1,
+          0,
         ];
         break;
       case ColorBlindnessType.tritanopia:
         filterMatrix = [
-          0.950, 0.050, 0.000, 0, 0,
-          0.000, 0.433, 0.567, 0, 0,
-          0.000, 0.475, 0.525, 0, 0,
-          0, 0, 0, 1, 0,
+          0.950,
+          0.050,
+          0.000,
+          0,
+          0,
+          0.000,
+          0.433,
+          0.567,
+          0,
+          0,
+          0.000,
+          0.475,
+          0.525,
+          0,
+          0,
+          0,
+          0,
+          0,
+          1,
+          0,
         ];
         break;
       case ColorBlindnessType.achromatopsia:
         filterMatrix = [
-          0.299, 0.587, 0.114, 0, 0,
-          0.299, 0.587, 0.114, 0, 0,
-          0.299, 0.587, 0.114, 0, 0,
-          0, 0, 0, 1, 0,
+          0.299,
+          0.587,
+          0.114,
+          0,
+          0,
+          0.299,
+          0.587,
+          0.114,
+          0,
+          0,
+          0.299,
+          0.587,
+          0.114,
+          0,
+          0,
+          0,
+          0,
+          0,
+          1,
+          0,
         ];
         break;
       default:
@@ -161,18 +224,20 @@ class MyApp extends StatelessWidget {
               themeMode: themeProvider.themeMode,
               initialRoute: '/',
               routes: {
-                '/': (context) => LoginScreen(),
-                '/register': (context) => RegisterScreen(),
-                '/lost-pets': (context) => LostPetsScreen(),
-                '/adopt': (context) => AdoptScreen(),
-                '/qr': (context) => QRScreen(),
-                '/profile': (context) => ProfileScreen(),
-                '/pet-id': (context) => PetIdScreen(),
-                '/support': (context) => SupportScreen(),
-                '/notifications': (context) => NotificationsScreen(),
-                '/messages': (context) => MessagesScreen(),
-                '/add-pet': (context) => AddPetScreen(),
-                '/recovery-password': (context) => const RecoveryPasswordScreen(),
+                // Agregar const mejora el rendimiento en las rutas al no reconstruir widgets inncesariamente
+                '/': (context) => const LoginScreen(),
+                '/register': (context) => const RegisterScreen(),
+                '/lost-pets': (context) => const LostPetsScreen(),
+                '/adopt': (context) => const AdoptScreen(),
+                '/qr': (context) => const QRScreen(),
+                '/profile': (context) => const ProfileScreen(),
+                '/pet-id': (context) => const PetIdScreen(),
+                '/support': (context) => const SupportScreen(),
+                '/notifications': (context) => const NotificationsScreen(),
+                '/messages': (context) => const MessagesScreen(),
+                '/add-pet': (context) => const AddPetScreen(),
+                '/recovery-password':
+                    (context) => const RecoveryPasswordScreen(),
               },
             ),
           );

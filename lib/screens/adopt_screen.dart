@@ -18,7 +18,7 @@ const Color primaryColor = Color(0xFFD68F5E);
 class AdoptScreen extends StatefulWidget {
   final int? initialPostId;
   final bool isModal;
-  const AdoptScreen({super.key, this.initialPostId, this.isModal=false});
+  const AdoptScreen({super.key, this.initialPostId, this.isModal = false});
 
   @override
   _AdoptScreenState createState() => _AdoptScreenState();
@@ -60,15 +60,16 @@ class _AdoptScreenState extends State<AdoptScreen> {
     mediaUrl = dotenv.env['MEDIA_URL'] ?? 'http://192.168.1.133:8000';
 
     _scrollController.addListener(() {
-      if (_scrollController.position.userScrollDirection == ScrollDirection.reverse) {
+      if (_scrollController.position.userScrollDirection ==
+          ScrollDirection.reverse) {
         if (_showFab) setState(() => _showFab = false);
-      } else if (_scrollController.position.userScrollDirection == ScrollDirection.forward) {
+      } else if (_scrollController.position.userScrollDirection ==
+          ScrollDirection.forward) {
         if (!_showFab) setState(() => _showFab = true);
       }
     });
 
     _initializeData();
-
   }
 
   Future<void> _initializeData() async {
@@ -102,12 +103,16 @@ class _AdoptScreenState extends State<AdoptScreen> {
         List<String> estadosTemp = [];
 
         if (data is Map && data['estados'] != null && data['estados'] is List) {
-          estadosTemp = (data['estados'] as List).map<String>((estadoMap) {
-            if (estadoMap is Map && estadoMap['ESTADO'] != null) {
-              return estadoMap['ESTADO'].toString();
-            }
-            return '';
-          }).where((estado) => estado.isNotEmpty).toList();
+          estadosTemp =
+              (data['estados'] as List)
+                  .map<String>((estadoMap) {
+                    if (estadoMap is Map && estadoMap['ESTADO'] != null) {
+                      return estadoMap['ESTADO'].toString();
+                    }
+                    return '';
+                  })
+                  .where((estado) => estado.isNotEmpty)
+                  .toList();
         }
 
         estadosTemp = estadosTemp.toSet().toList()..sort();
@@ -122,13 +127,15 @@ class _AdoptScreenState extends State<AdoptScreen> {
         });
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error al cargar estados: ${response.statusCode}')),
+          SnackBar(
+            content: Text('Error al cargar estados: ${response.statusCode}'),
+          ),
         );
       }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error de conexión: $e')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Error de conexión: $e')));
     } finally {
       setState(() => loadingEstados = false);
     }
@@ -136,11 +143,11 @@ class _AdoptScreenState extends State<AdoptScreen> {
 
   Future<void> _loadMunicipios(String estadoNombre) async {
     if (!mounted) return;
-      _dialogSetState(() {
-        loadingMunicipios = true;
-        municipios = [];
-        selectedMunicipio = null;
-      });
+    _dialogSetState(() {
+      loadingMunicipios = true;
+      municipios = [];
+      selectedMunicipio = null;
+    });
 
     try {
       if (!mounted) return;
@@ -156,7 +163,9 @@ class _AdoptScreenState extends State<AdoptScreen> {
       );
 
       if (estadosResponse.statusCode != 200) {
-        throw Exception('Error al obtener estados: ${estadosResponse.statusCode}');
+        throw Exception(
+          'Error al obtener estados: ${estadosResponse.statusCode}',
+        );
       }
 
       final estadosData = jsonDecode(estadosResponse.body);
@@ -165,8 +174,10 @@ class _AdoptScreenState extends State<AdoptScreen> {
       if (estadosData is Map && estadosData['estados'] is List) {
         final listaEstados = estadosData['estados'] as List;
         final estadoEncontrado = listaEstados.firstWhere(
-          (estado) => estado is Map && 
-                     estado['ESTADO']?.toString().toUpperCase() == estadoNombre.toUpperCase(),
+          (estado) =>
+              estado is Map &&
+              estado['ESTADO']?.toString().toUpperCase() ==
+                  estadoNombre.toUpperCase(),
           orElse: () => null,
         );
 
@@ -181,26 +192,35 @@ class _AdoptScreenState extends State<AdoptScreen> {
 
       // 2. Obtener municipios
       final municipiosResponse = await http.get(
-        Uri.parse('https://api.tau.com.mx/dipomex/v1/municipios?id_estado=$estadoId'),
+        Uri.parse(
+          'https://api.tau.com.mx/dipomex/v1/municipios?id_estado=$estadoId',
+        ),
         headers: {'APIKEY': dotenv.env['DIPOMEX_API_KEY'] ?? ''},
       );
 
       if (municipiosResponse.statusCode != 200) {
-        throw Exception('Error al obtener municipios: ${municipiosResponse.statusCode}');
+        throw Exception(
+          'Error al obtener municipios: ${municipiosResponse.statusCode}',
+        );
       }
 
       final municipiosData = jsonDecode(municipiosResponse.body);
-      
-      if (municipiosData['error'] == false && municipiosData['municipios'] is List) {
+
+      if (municipiosData['error'] == false &&
+          municipiosData['municipios'] is List) {
         final listaMunicipios = municipiosData['municipios'] as List;
-        
-        final municipiosTemp = listaMunicipios.map<String>((item) {
-          if (item is Map && item['MUNICIPIO'] != null) {
-            return item['MUNICIPIO'].toString();
-          }
-          return '';
-        }).where((m) => m.isNotEmpty).toList();
-        
+
+        final municipiosTemp =
+            listaMunicipios
+                .map<String>((item) {
+                  if (item is Map && item['MUNICIPIO'] != null) {
+                    return item['MUNICIPIO'].toString();
+                  }
+                  return '';
+                })
+                .where((m) => m.isNotEmpty)
+                .toList();
+
         municipiosTemp.sort();
 
         _dialogSetState(() {
@@ -208,11 +228,12 @@ class _AdoptScreenState extends State<AdoptScreen> {
           loadingMunicipios = false;
         });
       } else {
-        throw Exception('Error en respuesta de municipios: ${municipiosData['message']}');
+        throw Exception(
+          'Error en respuesta de municipios: ${municipiosData['message']}',
+        );
       }
 
-
-        // Verificar nuevamente antes de la última actualización
+      // Verificar nuevamente antes de la última actualización
       if (!mounted) return;
       _dialogSetState(() {
         municipios = municipiosData;
@@ -224,21 +245,18 @@ class _AdoptScreenState extends State<AdoptScreen> {
         loadingMunicipios = false;
       });
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error al cargar municipios: $e')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Error al cargar municipios: $e')));
     }
-    
   }
 
   Future<void> fetchData() async {
-     if (!mounted) return;
-      setState(() {
-        isLoading = true;
-        errorMessage = '';
-      });
-
-   
+    if (!mounted) return;
+    setState(() {
+      isLoading = true;
+      errorMessage = '';
+    });
 
     try {
       final SharedPreferences prefs = await SharedPreferences.getInstance();
@@ -281,34 +299,43 @@ class _AdoptScreenState extends State<AdoptScreen> {
         final List<dynamic> imgsData = jsonDecode(imgsResponse.body);
         final List<dynamic> usersData = jsonDecode(usersResponse.body);
 
-        final processedPosts = postsData.map((post) {
-          final petId = post['petId'];
-          final pet = petsData.firstWhere(
-            (pet) => pet['id'] == petId,
-            orElse: () => null,
-          );
-          final postImages = imgsData.where((img) => img['idPost'] == post['id']).toList();
-          final userId = post['userId'];
-          final user = usersData.firstWhere(
-            (user) => user['id'] == userId,
-            orElse: () => null,
-          );
-          return {
-            ...post,
-            'pet': pet,
-            'images': postImages,
-            'user': user,
-          };
-        }).where((post) => post['pet'] != null).toList();
+        final processedPosts =
+            postsData
+                .map((post) {
+                  final petId = post['petId'];
+                  final pet = petsData.firstWhere(
+                    (pet) => pet['id'] == petId,
+                    orElse: () => null,
+                  );
+                  final postImages =
+                      imgsData
+                          .where((img) => img['idPost'] == post['id'])
+                          .toList();
+                  final userId = post['userId'];
+                  final user = usersData.firstWhere(
+                    (user) => user['id'] == userId,
+                    orElse: () => null,
+                  );
+                  return {
+                    ...post,
+                    'pet': pet,
+                    'images': postImages,
+                    'user': user,
+                  };
+                })
+                .where((post) => post['pet'] != null)
+                .toList();
 
         setState(() {
           allPosts = processedPosts;
           // Filtrar por ubicación si hay un estado seleccionado
           if (currentUserState != null && currentUserState!.isNotEmpty) {
-            posts = applyFilters(processedPosts.where((post) {
-              final postState = post['state'] ?? post['pet']['state'] ?? '';
-              return postState == currentUserState;
-            }).toList());
+            posts = applyFilters(
+              processedPosts.where((post) {
+                final postState = post['state'] ?? post['pet']['state'] ?? '';
+                return postState == currentUserState;
+              }).toList(),
+            );
           } else {
             posts = applyFilters(processedPosts);
           }
@@ -328,19 +355,21 @@ class _AdoptScreenState extends State<AdoptScreen> {
   List<dynamic> applyFilters(List<dynamic> postsToFilter) {
     return postsToFilter.where((post) {
       final pet = post['pet'];
-      
+
       if (selectedSize != null && pet['size'] != selectedSize) {
         return false;
       }
-      
-      if (selectedBreed != null && !pet['breed'].toLowerCase().contains(selectedBreed!.toLowerCase())) {
+
+      if (selectedBreed != null &&
+          !pet['breed'].toLowerCase().contains(selectedBreed!.toLowerCase())) {
         return false;
       }
-      
-      if (selectedAge != null && !pet['age'].toLowerCase().contains(selectedAge!.toLowerCase()) ) {
+
+      if (selectedAge != null &&
+          !pet['age'].toLowerCase().contains(selectedAge!.toLowerCase())) {
         return false;
       }
-      
+
       return true;
     }).toList();
   }
@@ -350,9 +379,9 @@ class _AdoptScreenState extends State<AdoptScreen> {
     final String? token = prefs.getString('jwt_token');
 
     if (token == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Debes iniciar sesión")),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text("Debes iniciar sesión")));
       return;
     }
 
@@ -367,17 +396,17 @@ class _AdoptScreenState extends State<AdoptScreen> {
       );
 
       if (response.statusCode == 204) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("Publicación eliminada")),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text("Publicación eliminada")));
         await fetchData();
       } else {
         throw Exception("Error al eliminar: ${response.body}");
       }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Error: ${e.toString()}")),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text("Error: ${e.toString()}")));
     } finally {
       setState(() {
         isLoading = false;
@@ -386,14 +415,16 @@ class _AdoptScreenState extends State<AdoptScreen> {
   }
 
   Future<void> _editPost(int postId, String currentDescription) async {
-    final descriptionController = TextEditingController(text: currentDescription);
+    final descriptionController = TextEditingController(
+      text: currentDescription,
+    );
     final SharedPreferences prefs = await SharedPreferences.getInstance();
     final String? token = prefs.getString('jwt_token');
 
     if (token == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Debes iniciar sesión")),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text("Debes iniciar sesión")));
       return;
     }
 
@@ -419,7 +450,9 @@ class _AdoptScreenState extends State<AdoptScreen> {
               onPressed: () async {
                 if (descriptionController.text.isEmpty) {
                   ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text("La descripción no puede estar vacía")),
+                    const SnackBar(
+                      content: Text("La descripción no puede estar vacía"),
+                    ),
                   );
                   return;
                 }
@@ -465,9 +498,9 @@ class _AdoptScreenState extends State<AdoptScreen> {
     final int? userId = prefs.getInt('user_id');
 
     if (token == null || userId == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Debes iniciar sesión")),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text("Debes iniciar sesión")));
       return;
     }
 
@@ -479,33 +512,39 @@ class _AdoptScreenState extends State<AdoptScreen> {
 
       if (response.statusCode == 200) {
         final List<dynamic> userPets = jsonDecode(response.body);
-        
+
         // Filtrar solo mascotas con statusAdoption = 2 (Buscando familia)
-        final availablePets = userPets.where((pet) => pet['status'] == 2).toList();
-        
+        final availablePets =
+            userPets.where((pet) => pet['status'] == 2).toList();
+
         if (availablePets.isEmpty) {
           await showDialog(
             context: context,
-            builder: (context) => AlertDialog(
-              title: const Text("No tienes mascotas disponibles"),
-              content: const Text("No tienes mascotas con estado 'Buscando familia' para publicar.\n\nPuedes cambiar el estado de tus mascotas en la sección 'Mis Mascotas'."),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.pop(context),
-                  child: const Text("Cancelar"),
+            builder:
+                (context) => AlertDialog(
+                  title: const Text("No tienes mascotas disponibles"),
+                  content: const Text(
+                    "No tienes mascotas con estado 'Buscando familia' para publicar.\n\nPuedes cambiar el estado de tus mascotas en la sección 'Mis Mascotas'.",
+                  ),
+                  actions: [
+                    TextButton(
+                      onPressed: () => Navigator.pop(context),
+                      child: const Text("Cancelar"),
+                    ),
+                    TextButton(
+                      onPressed: () {
+                        Navigator.pop(context);
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => const AddPetScreen(),
+                          ),
+                        ).then((_) => fetchData());
+                      },
+                      child: const Text("Crear mascota"),
+                    ),
+                  ],
                 ),
-                TextButton(
-                  onPressed: () {
-                    Navigator.pop(context);
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (context) => const AddPetScreen()),
-                    ).then((_) => fetchData());
-                  },
-                  child: const Text("Crear mascota"),
-                ),
-              ],
-            ),
           );
           return;
         }
@@ -522,61 +561,74 @@ class _AdoptScreenState extends State<AdoptScreen> {
             return StatefulBuilder(
               builder: (context, setState) {
                 _dialogSetState = setState;
-                
+
                 return AlertDialog(
                   title: const Text("Publicar mascota en adopción"),
                   content: SingleChildScrollView(
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        const Text("Mascotas disponibles para adopción:",
-                          style: TextStyle(fontWeight: FontWeight.bold)),
+                        const Text(
+                          "Mascotas disponibles para adopción:",
+                          style: TextStyle(fontWeight: FontWeight.bold),
+                        ),
                         const SizedBox(height: 10),
                         DropdownButtonFormField<String>(
-                          value: selectedPetId,
+                          initialValue: selectedPetId,
                           hint: const Text("Selecciona una mascota"),
-                          items: availablePets.map((pet) {
-                            return DropdownMenuItem<String>(
-                              value: pet['id'].toString(),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text("${pet['name']} - ${pet['breed']}"),
-                                  Text("Edad: ${pet['age']}",
-                                    style: const TextStyle(fontSize: 12, color: Colors.grey)),
-                                ],
-                              ),
-                            );
-                          }).toList(),
-                          onChanged: (value) => setState(() => selectedPetId = value),
+                          items:
+                              availablePets.map((pet) {
+                                return DropdownMenuItem<String>(
+                                  value: pet['id'].toString(),
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text("${pet['name']} - ${pet['breed']}"),
+                                      Text(
+                                        "Edad: ${pet['age']}",
+                                        style: const TextStyle(
+                                          fontSize: 12,
+                                          color: Colors.grey,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                );
+                              }).toList(),
+                          onChanged:
+                              (value) => setState(() => selectedPetId = value),
                         ),
                         const SizedBox(height: 20),
-                        
+
                         // Selector de estado
                         DropdownButtonFormField<String>(
-                          value: selectedEstado,
-                          hint: loadingEstados 
-                              ? const Text("Cargando...")
-                              : const Text("Selecciona estado"),
-                          items: loadingEstados
-                              ? []
-                              : estados.map((estado) {
-                                  return DropdownMenuItem<String>(
-                                    value: estado,
-                                    child: Text(estado),
-                                  );
-                                }).toList(),
-                          onChanged: loadingEstados
-                              ? null
-                              : (value) {
-                                  setState(() {
-                                    selectedEstado = value;
-                                    selectedMunicipio = null;
-                                    if (value != null) {
-                                      _loadMunicipios(value);
-                                    }
-                                  });
-                                },
+                          initialValue: selectedEstado,
+                          hint:
+                              loadingEstados
+                                  ? const Text("Cargando...")
+                                  : const Text("Selecciona estado"),
+                          items:
+                              loadingEstados
+                                  ? []
+                                  : estados.map((estado) {
+                                    return DropdownMenuItem<String>(
+                                      value: estado,
+                                      child: Text(estado),
+                                    );
+                                  }).toList(),
+                          onChanged:
+                              loadingEstados
+                                  ? null
+                                  : (value) {
+                                    setState(() {
+                                      selectedEstado = value;
+                                      selectedMunicipio = null;
+                                      if (value != null) {
+                                        _loadMunicipios(value);
+                                      }
+                                    });
+                                  },
                         ),
 
                         const SizedBox(height: 10),
@@ -584,25 +636,28 @@ class _AdoptScreenState extends State<AdoptScreen> {
                         // Selector de municipio
                         if (selectedEstado != null)
                           DropdownButtonFormField<String>(
-                            value: selectedMunicipio,
-                            hint: loadingMunicipios
-                                ? const Text('Cargando municipios...')
-                                : const Text('Selecciona un municipio'),
-                            items: loadingMunicipios || municipios.isEmpty
-                                ? []
-                                : municipios.map((String value) {
-                                    return DropdownMenuItem<String>(
-                                      value: value,
-                                      child: Text(value),
-                                    );
-                                  }).toList(),
-                            onChanged: loadingMunicipios || municipios.isEmpty
-                                ? null
-                                : (newValue) {
-                                    setState(() {
-                                      selectedMunicipio = newValue;
-                                    });
-                                  },
+                            initialValue: selectedMunicipio,
+                            hint:
+                                loadingMunicipios
+                                    ? const Text('Cargando municipios...')
+                                    : const Text('Selecciona un municipio'),
+                            items:
+                                loadingMunicipios || municipios.isEmpty
+                                    ? []
+                                    : municipios.map((String value) {
+                                      return DropdownMenuItem<String>(
+                                        value: value,
+                                        child: Text(value),
+                                      );
+                                    }).toList(),
+                            onChanged:
+                                loadingMunicipios || municipios.isEmpty
+                                    ? null
+                                    : (newValue) {
+                                      setState(() {
+                                        selectedMunicipio = newValue;
+                                      });
+                                    },
                           ),
 
                         const SizedBox(height: 20),
@@ -611,7 +666,8 @@ class _AdoptScreenState extends State<AdoptScreen> {
                           decoration: const InputDecoration(
                             labelText: "Descripción de la publicación",
                             border: OutlineInputBorder(),
-                            hintText: "Describe a la mascota y las condiciones de adopción...",
+                            hintText:
+                                "Describe a la mascota y las condiciones de adopción...",
                           ),
                           maxLines: 4,
                         ),
@@ -620,7 +676,9 @@ class _AdoptScreenState extends State<AdoptScreen> {
                           icon: const Icon(Icons.image),
                           label: const Text("Seleccionar Imagen"),
                           onPressed: () async {
-                            final image = await ImagePicker().pickImage(source: ImageSource.gallery);
+                            final image = await ImagePicker().pickImage(
+                              source: ImageSource.gallery,
+                            );
                             if (image != null) {
                               setState(() {
                                 selectedImage = File(image.path);
@@ -635,9 +693,13 @@ class _AdoptScreenState extends State<AdoptScreen> {
                               children: [
                                 Image.file(selectedImage!, height: 100),
                                 TextButton(
-                                  onPressed: () => setState(() => selectedImage = null),
-                                  child: const Text("Quitar imagen", 
-                                    style: TextStyle(color: Colors.red)),
+                                  onPressed:
+                                      () =>
+                                          setState(() => selectedImage = null),
+                                  child: const Text(
+                                    "Quitar imagen",
+                                    style: TextStyle(color: Colors.red),
+                                  ),
                                 ),
                               ],
                             ),
@@ -652,12 +714,14 @@ class _AdoptScreenState extends State<AdoptScreen> {
                     ),
                     ElevatedButton(
                       onPressed: () async {
-                        if (selectedPetId == null || 
+                        if (selectedPetId == null ||
                             descriptionController.text.isEmpty ||
                             selectedEstado == null ||
                             selectedMunicipio == null) {
                           ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(content: Text("Completa todos los campos")),
+                            const SnackBar(
+                              content: Text("Completa todos los campos"),
+                            ),
                           );
                           return;
                         }
@@ -667,7 +731,7 @@ class _AdoptScreenState extends State<AdoptScreen> {
 
                         try {
                           final selectedPet = availablePets.firstWhere(
-                            (pet) => pet['id'].toString() == selectedPetId
+                            (pet) => pet['id'].toString() == selectedPetId,
                           );
 
                           // 1. Crear la publicación
@@ -678,9 +742,12 @@ class _AdoptScreenState extends State<AdoptScreen> {
                               "Authorization": "Bearer $token",
                             },
                             body: jsonEncode({
-                              "title": "Mascota en adopción: ${selectedPet['name']}",
+                              "title":
+                                  "Mascota en adopción: ${selectedPet['name']}",
                               "description": descriptionController.text,
-                              "postDate": DateFormat('yyyy-MM-dd').format(DateTime.now()),
+                              "postDate": DateFormat(
+                                'yyyy-MM-dd',
+                              ).format(DateTime.now()),
                               "petId": int.parse(selectedPetId!),
                               "userId": userId,
                               "state": selectedEstado,
@@ -689,7 +756,9 @@ class _AdoptScreenState extends State<AdoptScreen> {
                           );
 
                           if (postResponse.statusCode != 201) {
-                            throw Exception("Error al crear publicación: ${postResponse.body}");
+                            throw Exception(
+                              "Error al crear publicación: ${postResponse.body}",
+                            );
                           }
 
                           final postData = jsonDecode(postResponse.body);
@@ -697,16 +766,19 @@ class _AdoptScreenState extends State<AdoptScreen> {
 
                           // 2. Subir imagen si se seleccionó
                           if (selectedImage != null) {
-                            final request = http.MultipartRequest(
-                              "POST", 
-                              Uri.parse("$baseUrl/imgs-post/")
-                            )
-                              ..headers['Authorization'] = 'Bearer $token'
-                              ..fields['idPost'] = postId.toString()
-                              ..files.add(await http.MultipartFile.fromPath(
-                                'imgURL',
-                                selectedImage!.path,
-                              ));
+                            final request =
+                                http.MultipartRequest(
+                                    "POST",
+                                    Uri.parse("$baseUrl/imgs-post/"),
+                                  )
+                                  ..headers['Authorization'] = 'Bearer $token'
+                                  ..fields['idPost'] = postId.toString()
+                                  ..files.add(
+                                    await http.MultipartFile.fromPath(
+                                      'imgURL',
+                                      selectedImage!.path,
+                                    ),
+                                  );
 
                             final imgResponse = await request.send();
                             if (imgResponse.statusCode != 201) {
@@ -716,7 +788,9 @@ class _AdoptScreenState extends State<AdoptScreen> {
 
                           // 3. Enviar notificaciones a todos los usuarios
                           final notifResponse = await http.post(
-                            Uri.parse('$baseUrl/notifications/send-adoption-pet/'),
+                            Uri.parse(
+                              '$baseUrl/notifications/send-adoption-pet/',
+                            ),
                             headers: {
                               'Content-Type': 'application/json',
                               'Authorization': 'Bearer $token',
@@ -731,7 +805,11 @@ class _AdoptScreenState extends State<AdoptScreen> {
                           );
 
                           ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(content: Text("¡Publicación creada y notificaciones enviadas!")),
+                            const SnackBar(
+                              content: Text(
+                                "¡Publicación creada y notificaciones enviadas!",
+                              ),
+                            ),
                           );
                           await fetchData();
                         } catch (e) {
@@ -757,9 +835,9 @@ class _AdoptScreenState extends State<AdoptScreen> {
         throw Exception("Error al obtener mascotas: ${response.statusCode}");
       }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Error: ${e.toString()}")),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text("Error: ${e.toString()}")));
     }
   }
 
@@ -792,7 +870,9 @@ class _AdoptScreenState extends State<AdoptScreen> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            user != null ? "${user['name']} ${user['first_name']}" : "Usuario",
+                            user != null
+                                ? "${user['name']} ${user['first_name']}"
+                                : "Usuario",
                             style: const TextStyle(
                               fontWeight: FontWeight.bold,
                               fontSize: 16,
@@ -800,7 +880,9 @@ class _AdoptScreenState extends State<AdoptScreen> {
                           ),
                           if (post['postDate'] != null)
                             Text(
-                              DateFormat('dd MMM yyyy, hh:mm a').format(DateTime.parse(post['postDate'])),
+                              DateFormat(
+                                'dd MMM yyyy, hh:mm a',
+                              ).format(DateTime.parse(post['postDate'])),
                               style: const TextStyle(
                                 color: Colors.grey,
                                 fontSize: 12,
@@ -853,38 +935,50 @@ class _AdoptScreenState extends State<AdoptScreen> {
               // Post images - Esta es la parte clave que cambiamos
               if (images.isNotEmpty)
                 Column(
-                  children: images.map((image) {
-                    final imageUrl = "$mediaUrl${image['imgURL']}";
-                    return Padding(
-                      padding: const EdgeInsets.only(bottom: 8),
-                      child: ClipRRect(
-                        borderRadius: BorderRadius.circular(8),
-                        child: CachedNetworkImage(
-                          imageUrl: imageUrl,
-                          width: MediaQuery.of(context).size.width - 32,
-                          height: MediaQuery.of(context).size.width * 0.8,
-                          fit: BoxFit.cover,
-                          placeholder: (context, url) => Container(
-                            color: Colors.grey[200],
-                            width: MediaQuery.of(context).size.width - 32,
-                            height: MediaQuery.of(context).size.width * 0.8,
-                            child: const Center(child: CircularProgressIndicator()),
+                  children:
+                      images.map((image) {
+                        final imageUrl = "$mediaUrl${image['imgURL']}";
+                        return Padding(
+                          padding: const EdgeInsets.only(bottom: 8),
+                          child: ClipRRect(
+                            borderRadius: BorderRadius.circular(8),
+                            child: CachedNetworkImage(
+                              imageUrl: imageUrl,
+                              width: MediaQuery.of(context).size.width - 32,
+                              height: MediaQuery.of(context).size.width * 0.8,
+                              fit: BoxFit.cover,
+                              placeholder:
+                                  (context, url) => Container(
+                                    color: Colors.grey[200],
+                                    width:
+                                        MediaQuery.of(context).size.width - 32,
+                                    height:
+                                        MediaQuery.of(context).size.width * 0.8,
+                                    child: const Center(
+                                      child: CircularProgressIndicator(),
+                                    ),
+                                  ),
+                              errorWidget:
+                                  (context, url, error) => Container(
+                                    color: Colors.grey[200],
+                                    width:
+                                        MediaQuery.of(context).size.width - 32,
+                                    height:
+                                        MediaQuery.of(context).size.width * 0.8,
+                                    child: const Icon(Icons.error),
+                                  ),
+                            ),
                           ),
-                          errorWidget: (context, url, error) => Container(
-                            color: Colors.grey[200],
-                            width: MediaQuery.of(context).size.width - 32,
-                            height: MediaQuery.of(context).size.width * 0.8,
-                            child: const Icon(Icons.error),
-                          ),
-                        ),
-                      ),
-                    );
-                  }).toList(),
+                        );
+                      }).toList(),
                 ),
 
               // Action buttons
               Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 8,
+                ),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
@@ -895,7 +989,8 @@ class _AdoptScreenState extends State<AdoptScreen> {
                         Navigator.push(
                           context,
                           MaterialPageRoute(
-                            builder: (context) => CommentScreen(postId: post['id']),
+                            builder:
+                                (context) => CommentScreen(postId: post['id']),
                           ),
                         );
                       },
@@ -905,19 +1000,24 @@ class _AdoptScreenState extends State<AdoptScreen> {
                       label: const Text('Mensaje'),
                       onPressed: () async {
                         final prefs = await SharedPreferences.getInstance();
-                        if (prefs.getInt('user_id') == null || prefs.getString('jwt_token') == null) {
+                        if (prefs.getInt('user_id') == null ||
+                            prefs.getString('jwt_token') == null) {
                           ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(content: Text("Debes iniciar sesión")),
+                            const SnackBar(
+                              content: Text("Debes iniciar sesión"),
+                            ),
                           );
                           return;
                         }
                         Navigator.push(
                           context,
                           MaterialPageRoute(
-                            builder: (context) => MessagesScreen(
-                              initialRecipientId: user['id'],
-                              initialRecipientName: user['name'] ?? 'Usuario',
-                            ),
+                            builder:
+                                (context) => MessagesScreen(
+                                  initialRecipientId: user['id'],
+                                  initialRecipientName:
+                                      user['name'] ?? 'Usuario',
+                                ),
                           ),
                         );
                       },
@@ -925,7 +1025,8 @@ class _AdoptScreenState extends State<AdoptScreen> {
                     if (user != null && user['id'] == currentUserId)
                       IconButton(
                         icon: const Icon(Icons.edit, color: Colors.blue),
-                        onPressed: () => _editPost(post['id'], post['description']),
+                        onPressed:
+                            () => _editPost(post['id'], post['description']),
                       ),
                   ],
                 ),
@@ -965,12 +1066,13 @@ class _AdoptScreenState extends State<AdoptScreen> {
                 DropdownButton<String>(
                   hint: const Text("Tamaño"),
                   value: selectedSize,
-                  items: ["Pequeno", "Mediano", "Grande"].map((String value) {
-                    return DropdownMenuItem<String>(
-                      value: value,
-                      child: Text(value),
-                    );
-                  }).toList(),
+                  items:
+                      ["Pequeno", "Mediano", "Grande"].map((String value) {
+                        return DropdownMenuItem<String>(
+                          value: value,
+                          child: Text(value),
+                        );
+                      }).toList(),
                   onChanged: (newValue) {
                     setState(() {
                       selectedSize = newValue;
@@ -981,12 +1083,15 @@ class _AdoptScreenState extends State<AdoptScreen> {
                 DropdownButton<String>(
                   hint: const Text("Edad"),
                   value: selectedAge,
-                  items: ["Cachorro (0-1)", "Joven (2-6)", "Adulto (+6)"].map((String value) {
-                    return DropdownMenuItem<String>(
-                      value: value.split(' ')[0],
-                      child: Text(value),
-                    );
-                  }).toList(),
+                  items:
+                      ["Cachorro (0-1)", "Joven (2-6)", "Adulto (+6)"].map((
+                        String value,
+                      ) {
+                        return DropdownMenuItem<String>(
+                          value: value.split(' ')[0],
+                          child: Text(value),
+                        );
+                      }).toList(),
                   onChanged: (newValue) {
                     setState(() {
                       selectedAge = newValue;
@@ -997,12 +1102,15 @@ class _AdoptScreenState extends State<AdoptScreen> {
                 DropdownButton<String>(
                   hint: const Text("Tipo"),
                   value: selectedBreed,
-                  items: ["Perro", "Gato", "Roedor", "Ave", "Otro"].map((String value) {
-                    return DropdownMenuItem<String>(
-                      value: value,
-                      child: Text(value),
-                    );
-                  }).toList(),
+                  items:
+                      ["Perro", "Gato", "Roedor", "Ave", "Otro"].map((
+                        String value,
+                      ) {
+                        return DropdownMenuItem<String>(
+                          value: value,
+                          child: Text(value),
+                        );
+                      }).toList(),
                   onChanged: (newValue) {
                     setState(() {
                       selectedBreed = newValue;
@@ -1029,36 +1137,41 @@ class _AdoptScreenState extends State<AdoptScreen> {
             ),
           ),
           Expanded(
-            child: isLoading
-                ? const Center(child: CircularProgressIndicator())
-                : posts.isEmpty
-                ? Center(
-              child: Text(
-                errorMessage.isEmpty ? "No hay mascotas que coincidan con los filtros" : errorMessage,
-                style: const TextStyle(fontSize: 18),
-              ),
-            )
-                : RefreshIndicator(
-              onRefresh: fetchData,
-              child: ListView.builder(
-                controller: _scrollController, 
-                padding: const EdgeInsets.all(10),
-                itemCount: posts.length,
-                itemBuilder: (context, index) => _buildPostCard(posts[index]),
-              ),
-            ),
+            child:
+                isLoading
+                    ? const Center(child: CircularProgressIndicator())
+                    : posts.isEmpty
+                    ? Center(
+                      child: Text(
+                        errorMessage.isEmpty
+                            ? "No hay mascotas que coincidan con los filtros"
+                            : errorMessage,
+                        style: const TextStyle(fontSize: 18),
+                      ),
+                    )
+                    : RefreshIndicator(
+                      onRefresh: fetchData,
+                      child: ListView.builder(
+                        controller: _scrollController,
+                        padding: const EdgeInsets.all(10),
+                        itemCount: posts.length,
+                        itemBuilder:
+                            (context, index) => _buildPostCard(posts[index]),
+                      ),
+                    ),
           ),
         ],
       ),
-        floatingActionButton: _showFab
-            ? FloatingActionButton.extended(
-          backgroundColor: primaryColor,
+      floatingActionButton:
+          _showFab
+              ? FloatingActionButton.extended(
+                backgroundColor: primaryColor,
 
-          onPressed: _createPostWithExistingPet,
-          label: const Text("Publicar mascota"),
-          icon: const Icon(Icons.add),
-        )
-            : null,
+                onPressed: _createPostWithExistingPet,
+                label: const Text("Publicar mascota"),
+                icon: const Icon(Icons.add),
+              )
+              : null,
     );
   }
 }

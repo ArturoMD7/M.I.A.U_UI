@@ -1,11 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
-import 'package:miauuic/screens/adopt_screen.dart';
 import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:intl/intl.dart';
 import 'custom_app_bar.dart';
-import 'lost_pets_screen.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import '../utils/post_detail_modal.dart';
 import 'messages_screen.dart';
@@ -40,12 +38,17 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
   }
 
   void _scrollListener() {
-    if (_scrollController.position.pixels == _scrollController.position.maxScrollExtent) {
+    if (_scrollController.position.pixels ==
+        _scrollController.position.maxScrollExtent) {
       _loadMoreNotifications();
     }
   }
 
-  Future<void> _showPostModal(BuildContext context, String postId, String notifType) async {
+  Future<void> _showPostModal(
+    BuildContext context,
+    String postId,
+    String notifType,
+  ) async {
     final parsedPostId = int.tryParse(postId);
     if (parsedPostId == null) return;
 
@@ -54,9 +57,9 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     final mediaUrl = dotenv.env['MEDIA_URL'] ?? 'http://192.168.1.133:8000';
 
     if (token == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Debes iniciar sesión")),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text("Debes iniciar sesión")));
       return;
     }
 
@@ -91,8 +94,8 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
         headers: {"Authorization": "Bearer $token"},
       );
 
-      if (petResponse.statusCode == 200 && 
-          imgsResponse.statusCode == 200 && 
+      if (petResponse.statusCode == 200 &&
+          imgsResponse.statusCode == 200 &&
           userResponse.statusCode == 200) {
         final post = {
           ...postData,
@@ -115,9 +118,11 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
               ),
               child: Scaffold(
                 appBar: AppBar(
-                  title: Text(notifType == 'Desaparecido_Alrededor' 
-                      ? "Mascota Perdida" 
-                      : "Mascota en Adopción"),
+                  title: Text(
+                    notifType == 'Desaparecido_Alrededor'
+                        ? "Mascota Perdida"
+                        : "Mascota en Adopción",
+                  ),
                   actions: [
                     IconButton(
                       icon: const Icon(Icons.close),
@@ -133,10 +138,12 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                     Navigator.push(
                       context,
                       MaterialPageRoute(
-                        builder: (context) => MessagesScreen(
-                          initialRecipientId: userId,
-                          initialRecipientName: post['user']['name'] ?? 'Usuario',
-                        ),
+                        builder:
+                            (context) => MessagesScreen(
+                              initialRecipientId: userId,
+                              initialRecipientName:
+                                  post['user']['name'] ?? 'Usuario',
+                            ),
                       ),
                     );
                   },
@@ -150,7 +157,9 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
       }
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Error al cargar la publicación: ${e.toString()}")),
+        SnackBar(
+          content: Text("Error al cargar la publicación: ${e.toString()}"),
+        ),
       );
     }
   }
@@ -171,29 +180,33 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
 
       final response = await http.get(
         Uri.parse("$baseUrl/notifications/user/$userId/"),
-        headers: {"Authorization": "Bearer $token",
-    "Accept-Charset": "utf-8",},
+        headers: {"Authorization": "Bearer $token", "Accept-Charset": "utf-8"},
       );
 
       if (response.statusCode == 200) {
         final List<dynamic> newNotifications = jsonDecode(response.body);
-        
+
         // Procesar notificaciones y eliminar duplicados
         final seenIds = <String>{};
-        final processedNotifications = newNotifications
-            .where((n) => seenIds.add(n['id'].toString())) // Elimina duplicados por ID
-            .map((n) {
-              return {
-                'id': n['id'].toString(),
-                'notifType': n['notifType'],
-                'message': n['message'],
-                'read': n['read'],
-                'notiDate': n['notiDate'],
-                'related_post_id': n['related_post'] != null 
-                    ? n['related_post']['id']?.toString() 
-                    : n['related_post_id']?.toString(),
-              };
-            }).toList();
+        final processedNotifications =
+            newNotifications
+                .where(
+                  (n) => seenIds.add(n['id'].toString()),
+                ) // Elimina duplicados por ID
+                .map((n) {
+                  return {
+                    'id': n['id'].toString(),
+                    'notifType': n['notifType'],
+                    'message': n['message'],
+                    'read': n['read'],
+                    'notiDate': n['notiDate'],
+                    'related_post_id':
+                        n['related_post'] != null
+                            ? n['related_post']['id']?.toString()
+                            : n['related_post_id']?.toString(),
+                  };
+                })
+                .toList();
 
         setState(() {
           notifications = processedNotifications;
@@ -202,7 +215,9 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
           errorMessage = '';
         });
       } else {
-        throw Exception("Error al cargar notificaciones: ${response.statusCode}");
+        throw Exception(
+          "Error al cargar notificaciones: ${response.statusCode}",
+        );
       }
     } catch (e) {
       setState(() {
@@ -224,22 +239,25 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
       if (token == null || userId == null) return;
 
       final response = await http.get(
-        Uri.parse("$baseUrl/notifications/user/$userId/?limit=10&offset=${notifications.length}"),
+        Uri.parse(
+          "$baseUrl/notifications/user/$userId/?limit=10&offset=${notifications.length}",
+        ),
         headers: {"Authorization": "Bearer $token"},
       );
 
       if (response.statusCode == 200) {
         final List<dynamic> newNotifications = jsonDecode(response.body);
-        final processedNotifications = newNotifications.map((n) {
-          return {
-            'id': n['id'].toString(),
-            'notifType': n['notifType'],
-            'message': n['message'],
-            'read': n['read'],
-            'notiDate': n['notiDate'],
-            'related_post_id': n['related_post_id']?.toString(),
-          };
-        }).toList();
+        final processedNotifications =
+            newNotifications.map((n) {
+              return {
+                'id': n['id'].toString(),
+                'notifType': n['notifType'],
+                'message': n['message'],
+                'read': n['read'],
+                'notiDate': n['notiDate'],
+                'related_post_id': n['related_post_id']?.toString(),
+              };
+            }).toList();
 
         setState(() {
           notifications.addAll(processedNotifications);
@@ -271,7 +289,9 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
 
       if (response.statusCode == 200) {
         setState(() {
-          final index = notifications.indexWhere((n) => n['id'] == notificationId);
+          final index = notifications.indexWhere(
+            (n) => n['id'] == notificationId,
+          );
           if (index != -1) {
             notifications[index]['read'] = true;
           }
@@ -311,7 +331,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     // Definir icono y color según el tipo de notificación
     IconData icon;
     Color iconColor;
-    
+
     switch (notification['notifType']) {
       case 'Desaparecido_Alrededor':
         icon = Icons.pets;
@@ -346,20 +366,26 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
       confirmDismiss: (direction) async {
         return await showDialog(
           context: context,
-          builder: (context) => AlertDialog(
-            title: const Text("Eliminar notificación"),
-            content: const Text("¿Estás seguro de que quieres eliminar esta notificación?"),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.of(context).pop(false),
-                child: const Text("Cancelar"),
+          builder:
+              (context) => AlertDialog(
+                title: const Text("Eliminar notificación"),
+                content: const Text(
+                  "¿Estás seguro de que quieres eliminar esta notificación?",
+                ),
+                actions: [
+                  TextButton(
+                    onPressed: () => Navigator.of(context).pop(false),
+                    child: const Text("Cancelar"),
+                  ),
+                  TextButton(
+                    onPressed: () => Navigator.of(context).pop(true),
+                    child: const Text(
+                      "Eliminar",
+                      style: TextStyle(color: Colors.red),
+                    ),
+                  ),
+                ],
               ),
-              TextButton(
-                onPressed: () => Navigator.of(context).pop(true),
-                child: const Text("Eliminar", style: TextStyle(color: Colors.red)),
-              ),
-            ],
-          ),
         );
       },
       onDismissed: (direction) {
@@ -394,14 +420,20 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                         style: TextStyle(
                           fontWeight: FontWeight.bold,
                           fontSize: 16,
-                          color: notification['read'] ? Colors.grey[800] : Colors.black,
+                          color:
+                              notification['read']
+                                  ? Colors.grey[800]
+                                  : Colors.black,
                         ),
                       ),
                       const SizedBox(height: 4),
                       Text(
                         _formatDate(notification['notiDate']),
                         style: TextStyle(
-                          color: notification['read'] ? Colors.grey : Colors.grey[700],
+                          color:
+                              notification['read']
+                                  ? Colors.grey
+                                  : Colors.grey[700],
                           fontSize: 12,
                         ),
                       ),
@@ -474,10 +506,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
           const SizedBox(height: 16),
           Text(
             errorMessage.isNotEmpty ? errorMessage : "Ocurrió un error",
-            style: TextStyle(
-              fontSize: 16,
-              color: Colors.grey[700],
-            ),
+            style: TextStyle(fontSize: 16, color: Colors.grey[700]),
             textAlign: TextAlign.center,
           ),
           const SizedBox(height: 16),
@@ -498,36 +527,38 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
         onRefresh: _refreshNotifications,
         child: Padding(
           padding: const EdgeInsets.all(8.0),
-          child: isLoading
-              ? const Center(child: CircularProgressIndicator())
-              : errorMessage.isNotEmpty
+          child:
+              isLoading
+                  ? const Center(child: CircularProgressIndicator())
+                  : errorMessage.isNotEmpty
                   ? _buildErrorState()
                   : notifications.isEmpty
-                      ? _buildEmptyState()
-                      : ListView.builder(
-                          controller: _scrollController,
-                          itemCount: notifications.length + 1,
-                          itemBuilder: (context, index) {
-                            if (index < notifications.length) {
-                              return _buildNotificationCard(
-                                notification: notifications[index],
-                                context: context,
-                              );
-                            } else {
-                              return Padding(
-                                padding: const EdgeInsets.all(16.0),
-                                child: Center(
-                                  child: notifications.length % 10 == 0
-                                      ? const CircularProgressIndicator()
-                                      : const Text(
-                                          "No hay más notificaciones",
-                                          style: TextStyle(color: Colors.grey),
-                                        ),
-                                ),
-                              );
-                            }
-                          },
-                        ),
+                  ? _buildEmptyState()
+                  : ListView.builder(
+                    controller: _scrollController,
+                    itemCount: notifications.length + 1,
+                    itemBuilder: (context, index) {
+                      if (index < notifications.length) {
+                        return _buildNotificationCard(
+                          notification: notifications[index],
+                          context: context,
+                        );
+                      } else {
+                        return Padding(
+                          padding: const EdgeInsets.all(16.0),
+                          child: Center(
+                            child:
+                                notifications.length % 10 == 0
+                                    ? const CircularProgressIndicator()
+                                    : const Text(
+                                      "No hay más notificaciones",
+                                      style: TextStyle(color: Colors.grey),
+                                    ),
+                          ),
+                        );
+                      }
+                    },
+                  ),
         ),
       ),
     );

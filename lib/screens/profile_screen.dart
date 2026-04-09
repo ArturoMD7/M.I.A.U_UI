@@ -5,9 +5,7 @@ import 'package:miauuic/screens/custom_app_bar.dart';
 import 'package:miauuic/utils/user_posts_modal.dart';
 import 'package:miauuic/services/profile_provider.dart';
 
-const Color primaryColor = Color(
-  0xFFD0894B,
-);
+const Color primaryColor = Color(0xFFD0894B);
 const Color iconColor = Colors.black;
 
 class ProfileScreen extends StatelessWidget {
@@ -22,7 +20,7 @@ class ProfileScreen extends StatelessWidget {
         body: Consumer<ProfileProvider>(
           builder: (context, provider, _) {
             final state = provider.state;
-            
+
             if (state.isLoading && state.userInfo == null) {
               return const Center(child: CircularProgressIndicator());
             }
@@ -43,10 +41,7 @@ class _ProfileContent extends StatelessWidget {
   final ProfileState state;
   final ProfileProvider provider;
 
-  const _ProfileContent({
-    required this.state,
-    required this.provider,
-  });
+  const _ProfileContent({required this.state, required this.provider});
 
   @override
   Widget build(BuildContext context) {
@@ -71,7 +66,9 @@ class _ProfileContent extends StatelessWidget {
           ),
           Text(
             "ID de usuario: #${state.userInfo?['id'] ?? 'N/A'}",
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: Colors.grey),
+            style: Theme.of(
+              context,
+            ).textTheme.bodyMedium?.copyWith(color: Colors.grey),
           ),
           if (state.errorMessage != null) ...[
             const SizedBox(height: 10),
@@ -93,7 +90,6 @@ class _ProfileContent extends StatelessWidget {
   }
 }
 
-
 class _ThemeSwitch extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
@@ -103,9 +99,7 @@ class _ThemeSwitch extends StatelessWidget {
     return SwitchListTile(
       title: Text(
         isDarkMode ? 'Modo Oscuro' : 'Modo Claro',
-        style: TextStyle(
-          color: Theme.of(context).textTheme.bodyLarge?.color,
-        ),
+        style: TextStyle(color: Theme.of(context).textTheme.bodyLarge?.color),
       ),
       value: isDarkMode,
       onChanged: themeProvider.toggleTheme,
@@ -125,14 +119,9 @@ class _ColorBlindnessSettings extends StatelessWidget {
     return ExpansionTile(
       title: Text(
         'Modo Daltonismo',
-        style: TextStyle(
-          color: Theme.of(context).textTheme.bodyLarge?.color,
-        ),
+        style: TextStyle(color: Theme.of(context).textTheme.bodyLarge?.color),
       ),
-      leading: Icon(
-        Icons.color_lens,
-        color: Theme.of(context).iconTheme.color,
-      ),
+      leading: Icon(Icons.color_lens, color: Theme.of(context).iconTheme.color),
       children: [
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16.0),
@@ -156,29 +145,36 @@ class _ColorBlindnessTypeDropdown extends StatelessWidget {
 
   String _getTypeName(ColorBlindnessType type) {
     switch (type) {
-      case ColorBlindnessType.none: return 'Ninguno';
-      case ColorBlindnessType.protanopia: return 'Protanopia (rojo-verde)';
-      case ColorBlindnessType.deuteranopia: return 'Deuteranopia (rojo-verde)';
-      case ColorBlindnessType.tritanopia: return 'Tritanopia (azul-amarillo)';
-      case ColorBlindnessType.achromatopsia: return 'Achromatopsia (monocromático)';
-      default: return 'Desconocido';
+      case ColorBlindnessType.none:
+        return 'Ninguno';
+      case ColorBlindnessType.protanopia:
+        return 'Protanopia (rojo-verde)';
+      case ColorBlindnessType.deuteranopia:
+        return 'Deuteranopia (rojo-verde)';
+      case ColorBlindnessType.tritanopia:
+        return 'Tritanopia (azul-amarillo)';
+      case ColorBlindnessType.achromatopsia:
+        return 'Achromatopsia (monocromático)';
+      default:
+        return 'Desconocido';
     }
   }
 
   @override
   Widget build(BuildContext context) {
     return DropdownButtonFormField<ColorBlindnessType>(
-      value: themeProvider.colorBlindnessType,
+      initialValue: themeProvider.colorBlindnessType,
       decoration: InputDecoration(
         labelText: 'Tipo de daltonismo',
         border: const OutlineInputBorder(),
       ),
-      items: ColorBlindnessType.values.map((type) {
-        return DropdownMenuItem<ColorBlindnessType>(
-          value: type,
-          child: Text(_getTypeName(type)),
-        );
-      }).toList(),
+      items:
+          ColorBlindnessType.values.map((type) {
+            return DropdownMenuItem<ColorBlindnessType>(
+              value: type,
+              child: Text(_getTypeName(type)),
+            );
+          }).toList(),
       onChanged: (type) {
         if (type != null) {
           themeProvider.setColorBlindness(
@@ -203,9 +199,7 @@ class _SeveritySlider extends StatelessWidget {
       children: [
         Text(
           'Severidad: ${(themeProvider.severity * 100).round()}%',
-          style: TextStyle(
-            color: Theme.of(context).textTheme.bodyLarge?.color,
-          ),
+          style: TextStyle(color: Theme.of(context).textTheme.bodyLarge?.color),
         ),
         Slider(
           value: themeProvider.severity,
@@ -229,10 +223,7 @@ class _ProfileActions extends StatelessWidget {
   final Map<String, dynamic> userInfo;
   final ProfileProvider provider;
 
-  const _ProfileActions({
-    required this.userInfo,
-    required this.provider,
-  });
+  const _ProfileActions({required this.userInfo, required this.provider});
 
   @override
   Widget build(BuildContext context) {
@@ -241,7 +232,7 @@ class _ProfileActions extends StatelessWidget {
         _ProfileButton(
           icon: Icons.article,
           text: "Mis publicaciones",
-          backgroundColor:primaryColor ,
+          backgroundColor: primaryColor,
           onPressed: () {
             showModalBottomSheet(
               context: context,
@@ -296,51 +287,54 @@ class _ProfileActions extends StatelessWidget {
   void _showLogoutDialog(BuildContext context) {
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text("Cerrar sesión"),
-        content: const Text("¿Estás seguro que deseas cerrar sesión?"),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text("Cancelar"),
+      builder:
+          (context) => AlertDialog(
+            title: const Text("Cerrar sesión"),
+            content: const Text("¿Estás seguro que deseas cerrar sesión?"),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text("Cancelar"),
+              ),
+              TextButton(
+                onPressed: () {
+                  Navigator.pop(context);
+                  provider.logout(context);
+                },
+                child: const Text("Cerrar sesión"),
+              ),
+            ],
           ),
-          TextButton(
-            onPressed: () {
-              Navigator.pop(context);
-              provider.logout(context);
-            },
-            child: const Text("Cerrar sesión"),
-          ),
-        ],
-      ),
     );
   }
 
   void _showDeleteAccountDialog(BuildContext context) {
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text("Eliminar cuenta"),
-        content: const Text(
-            "¿Estás seguro que deseas eliminar tu cuenta permanentemente? "
-            "Esta acción no se puede deshacer y perderás todos tus datos."),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text("Cancelar"),
-          ),
-          TextButton(
-            onPressed: () {
-              Navigator.pop(context);
-              // provider.deleteAccount(context);
-            },
-            child: const Text(
-              "Eliminar",
-              style: TextStyle(color: Colors.red),
+      builder:
+          (context) => AlertDialog(
+            title: const Text("Eliminar cuenta"),
+            content: const Text(
+              "¿Estás seguro que deseas eliminar tu cuenta permanentemente? "
+              "Esta acción no se puede deshacer y perderás todos tus datos.",
             ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text("Cancelar"),
+              ),
+              TextButton(
+                onPressed: () {
+                  Navigator.pop(context);
+                  // provider.deleteAccount(context);
+                },
+                child: const Text(
+                  "Eliminar",
+                  style: TextStyle(color: Colors.red),
+                ),
+              ),
+            ],
           ),
-        ],
-      ),
     );
   }
 }
@@ -399,11 +393,21 @@ class _EditProfileScreenState extends State<_EditProfileScreen> {
   @override
   void initState() {
     super.initState();
-    _nameController = TextEditingController(text: widget.userInfo['name'] ?? '');
-    _firstNameController = TextEditingController(text: widget.userInfo['first_name'] ?? '');
-    _ageController = TextEditingController(text: widget.userInfo['age']?.toString() ?? '');
-    _emailController = TextEditingController(text: widget.userInfo['email'] ?? '');
-    _phoneController = TextEditingController(text: widget.userInfo['phone_number'] ?? '');
+    _nameController = TextEditingController(
+      text: widget.userInfo['name'] ?? '',
+    );
+    _firstNameController = TextEditingController(
+      text: widget.userInfo['first_name'] ?? '',
+    );
+    _ageController = TextEditingController(
+      text: widget.userInfo['age']?.toString() ?? '',
+    );
+    _emailController = TextEditingController(
+      text: widget.userInfo['email'] ?? '',
+    );
+    _phoneController = TextEditingController(
+      text: widget.userInfo['phone_number'] ?? '',
+    );
   }
 
   @override
@@ -439,15 +443,17 @@ class _EditProfileScreenState extends State<_EditProfileScreen> {
               TextFormField(
                 controller: _nameController,
                 decoration: const InputDecoration(labelText: "Nombre"),
-                validator: (value) =>
-                    value?.isEmpty ?? true ? 'Ingresa tu nombre' : null,
+                validator:
+                    (value) =>
+                        value?.isEmpty ?? true ? 'Ingresa tu nombre' : null,
               ),
               const SizedBox(height: 10),
               TextFormField(
                 controller: _firstNameController,
                 decoration: const InputDecoration(labelText: "Apellido"),
-                validator: (value) =>
-                    value?.isEmpty ?? true ? 'Ingresa tu apellido' : null,
+                validator:
+                    (value) =>
+                        value?.isEmpty ?? true ? 'Ingresa tu apellido' : null,
               ),
               const SizedBox(height: 10),
               TextFormField(
@@ -506,7 +512,7 @@ class _EditProfileScreenState extends State<_EditProfileScreen> {
     try {
       // Implementar lógica de actualización aquí
       await Future.delayed(const Duration(seconds: 1)); // Simulación
-      
+
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Información actualizada')),
@@ -515,9 +521,9 @@ class _EditProfileScreenState extends State<_EditProfileScreen> {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Error: $e')));
       }
     } finally {
       if (mounted) {
