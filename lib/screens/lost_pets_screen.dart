@@ -49,6 +49,9 @@ class _LostPetsScreenState extends State<LostPetsScreen> {
   String? currentUserState;
   late Function(void Function()) _dialogSetState;
 
+  String get zipCodeApiUrl =>
+      dotenv.env['ZIP_CODE_API_URL'] ?? 'https://mexico-api.devaleff.com/api';
+
   @override
   void initState() {
     super.initState();
@@ -94,9 +97,8 @@ class _LostPetsScreenState extends State<LostPetsScreen> {
 
     try {
       final response = await http.get(
-        Uri.parse('https://api.tau.com.mx/dipomex/v1/estados'),
+        Uri.parse('$zipCodeApiUrl/estado'),
         headers: {
-          'APIKEY': dotenv.env['DIPOMEX_API_KEY'] ?? '',
           'Content-Type': 'application/json',
           'Accept': 'application/json',
         },
@@ -105,22 +107,16 @@ class _LostPetsScreenState extends State<LostPetsScreen> {
       debugPrint('Respuesta completa de estados: ${response.body}');
 
       if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
-        List<String> estadosTemp = [];
+        final Map<String, dynamic> body = jsonDecode(response.body);
+        final List<dynamic> data = body['data'] ?? [];
 
-        if (data is Map && data['estados'] != null && data['estados'] is List) {
-          estadosTemp =
-              (data['estados'] as List)
-                  .map<String>((estadoMap) {
-                    if (estadoMap is Map && estadoMap['ESTADO'] != null) {
-                      return estadoMap['ESTADO'].toString();
-                    }
-                    return '';
-                  })
-                  .where((estado) => estado.isNotEmpty)
-                  .toList();
-        }
+        List<String> estadosTemp =
+            data
+                .map<String>((item) => item['d_estado']?.toString() ?? '')
+                .where((estado) => estado.isNotEmpty)
+                .toList();
 
+        // Limpiamos duplicados y ordenamos alfabéticamente
         estadosTemp = estadosTemp.toSet().toList()..sort();
 
         setState(() {
@@ -157,83 +153,39 @@ class _LostPetsScreenState extends State<LostPetsScreen> {
     });
 
     try {
-      // 1. Obtener ID del estado
-      final estadosResponse = await http.get(
-        Uri.parse('https://api.tau.com.mx/dipomex/v1/estados'),
-        headers: {'APIKEY': dotenv.env['DIPOMEX_API_KEY'] ?? ''},
+      // Llamada directa al nuevo endpoint usando el nombre del estado
+      final response = await http.get(
+        Uri.parse('$zipCodeApiUrl/estado/$estadoNombre?per_page=200'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
       );
 
-      if (estadosResponse.statusCode != 200) {
-        throw Exception(
-          'Error al obtener estados: ${estadosResponse.statusCode}',
-        );
-      }
+      if (response.statusCode == 200) {
+        final Map<String, dynamic> body = jsonDecode(response.body);
+        final List<dynamic> data = body['data'] ?? [];
 
-      final estadosData = jsonDecode(estadosResponse.body);
-      String? estadoId;
-
-      if (estadosData is Map && estadosData['estados'] is List) {
-        final listaEstados = estadosData['estados'] as List;
-        final estadoEncontrado = listaEstados.firstWhere(
-          (estado) =>
-              estado is Map &&
-              estado['ESTADO']?.toString().toUpperCase() ==
-                  estadoNombre.toUpperCase(),
-          orElse: () => null,
-        );
-
-        if (estadoEncontrado != null && estadoEncontrado is Map) {
-          estadoId = estadoEncontrado['ESTADO_ID']?.toString();
-        }
-      }
-
-      if (estadoId == null) {
-        throw Exception('No se encontró ID para el estado $estadoNombre');
-      }
-
-      // 2. Obtener municipios
-      final municipiosResponse = await http.get(
-        Uri.parse(
-          'https://api.tau.com.mx/dipomex/v1/municipios?id_estado=$estadoId',
-        ),
-        headers: {'APIKEY': dotenv.env['DIPOMEX_API_KEY'] ?? ''},
-      );
-
-      if (municipiosResponse.statusCode != 200) {
-        throw Exception(
-          'Error al obtener municipios: ${municipiosResponse.statusCode}',
-        );
-      }
-
-      final municipiosData = jsonDecode(municipiosResponse.body);
-
-      if (municipiosData['error'] == false &&
-          municipiosData['municipios'] is List) {
-        final listaMunicipios = municipiosData['municipios'] as List;
-
-        final municipiosTemp =
-            listaMunicipios
-                .map<String>((item) {
-                  if (item is Map && item['MUNICIPIO'] != null) {
-                    return item['MUNICIPIO'].toString();
-                  }
-                  return '';
-                })
+        // Extraemos 'D_mnpio' y eliminamos duplicados con toSet()
+        final List<String> municipiosTemp =
+            data
+                .map<String>((item) => item['D_mnpio']?.toString() ?? '')
                 .where((m) => m.isNotEmpty)
+                .toSet()
                 .toList();
 
         municipiosTemp.sort();
 
+        if (!mounted) return;
         _dialogSetState(() {
           municipios = municipiosTemp;
           loadingMunicipios = false;
         });
       } else {
-        throw Exception(
-          'Error en respuesta de municipios: ${municipiosData['message']}',
-        );
+        throw Exception('Error servidor: ${response.statusCode}');
       }
     } catch (e) {
+      if (!mounted) return;
       _dialogSetState(() {
         loadingMunicipios = false;
       });

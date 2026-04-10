@@ -1,4 +1,3 @@
-//TODO: VALIDAR LAS RESPUESTAS DE ESTA SCREEN ES LO QUE FALTA AQUI
 import 'package:flutter/material.dart';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
@@ -47,7 +46,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
   // RUTA CORREGIDA
   String get zipCodeApiUrl =>
-      'https://mexico-api.devaleff.com/api/codigo-postal';
+      dotenv.env['ZIP_CODE_API_URL'] ?? 'https://mexico-api.devaleff.com/api';
 
   Future<void> searchCP() async {
     final cp = cpController.text.trim();
@@ -76,7 +75,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
     });
 
     try {
-      final url = Uri.parse('$zipCodeApiUrl/$cp');
+      final url = Uri.parse('$zipCodeApiUrl/codigo-postal/$cp');
       final response = await http
           .get(url)
           .timeout(const Duration(seconds: 10))
