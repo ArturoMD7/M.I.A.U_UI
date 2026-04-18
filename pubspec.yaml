@@ -32,12 +32,12 @@ dependencies:
   googleapis: ^12.0.0
   googleapis_auth: ^1.4.0
   google_sign_in: ^6.1.5
+  cached_network_image: ^3.3.1
   
 # Dependencies for development (testing, linting, etc.)
 dev_dependencies:
   flutter_test:
     sdk: flutter
-  cached_network_image: ^3.3.1
   flutter_pdfview: ^1.0.0+17
   barcode_scan2: ^4.5.0
   flutter_lints: ^5.0.0  # Esta es una dependencia de desarrollo, debe estar aquí

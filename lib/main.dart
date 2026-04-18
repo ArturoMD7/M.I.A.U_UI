@@ -1,17 +1,14 @@
 import 'package:flutter/material.dart';
-import 'package:miauuic/screens/recovery_password_screen.dart';
-import 'screens/add_pet_screen.dart';
+import 'screens/recovery_password_screen.dart';
+import 'screens/create_pet_screen.dart';
 import 'package:provider/provider.dart';
 import 'screens/login_screen.dart';
 import 'screens/register_screen.dart';
-import 'screens/lost_pets_screen.dart';
-import 'screens/adopt_screen.dart';
 import 'screens/qr_screen.dart';
+import 'screens/qr_scanner_screen.dart';
 import 'screens/profile_screen.dart';
-import 'screens/pet_id_screen.dart';
-import 'screens/support_screen.dart';
-import 'screens/notifications_screen.dart';
 import 'screens/messages_screen.dart';
+import 'presentation/screens/main_shell.dart';
 import 'services/pet_provider.dart';
 import 'services/theme_provider.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
@@ -190,52 +187,151 @@ class MyApp extends StatelessWidget {
               theme: ThemeData(
                 brightness: Brightness.light,
                 primaryColor: primaryColor,
-                colorScheme: ColorScheme.light(
+                scaffoldBackgroundColor: Colors.white,
+                colorScheme: const ColorScheme.light(
                   primary: primaryColor,
                   secondary: accentColor,
+                  surface: Colors.white,
+                  onSurface: Colors.black,
                 ),
-                scaffoldBackgroundColor: backgroundColor,
-                appBarTheme: AppBarTheme(
+                appBarTheme: const AppBarTheme(
                   backgroundColor: primaryColor,
+                  elevation: 0,
                   titleTextStyle: TextStyle(
                     fontSize: 20,
                     fontWeight: FontWeight.bold,
                     color: Colors.white,
                   ),
+                  iconTheme: IconThemeData(color: Colors.white),
+                ),
+                cardTheme: const CardThemeData(color: Colors.white),
+                iconTheme: const IconThemeData(color: Colors.black87),
+                textTheme: const TextTheme(
+                  bodyLarge: TextStyle(color: Colors.black),
+                  bodyMedium: TextStyle(color: Colors.black),
+                  bodySmall: TextStyle(color: Colors.black54),
+                  titleLarge: TextStyle(color: Colors.black),
+                  titleMedium: TextStyle(color: Colors.black),
+                  titleSmall: TextStyle(color: Colors.black),
+                ),
+                inputDecorationTheme: InputDecorationTheme(
+                  filled: true,
+                  fillColor: Colors.white,
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide(color: Colors.grey.shade300),
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide(color: Colors.grey.shade300),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: const BorderSide(color: primaryColor, width: 2),
+                  ),
+                  labelStyle: const TextStyle(color: Colors.black87),
+                  hintStyle: const TextStyle(color: Colors.black45),
+                ),
+                elevatedButtonTheme: ElevatedButtonThemeData(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: primaryColor,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 24,
+                      vertical: 12,
+                    ),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                ),
+                dialogTheme: const DialogThemeData(
+                  backgroundColor: Colors.white,
+                  titleTextStyle: TextStyle(color: Colors.black),
+                  contentTextStyle: TextStyle(color: Colors.black87),
+                ),
+                bottomNavigationBarTheme: const BottomNavigationBarThemeData(
+                  backgroundColor: Colors.white,
+                  selectedItemColor: primaryColor,
+                  unselectedItemColor: Colors.black54,
                 ),
               ),
               darkTheme: ThemeData(
                 brightness: Brightness.dark,
-                primaryColor: darkPrimaryColor,
-                colorScheme: ColorScheme.dark(
-                  primary: darkPrimaryColor,
+                primaryColor: primaryColor,
+                scaffoldBackgroundColor: const Color(0xFF1E1E1E),
+                colorScheme: const ColorScheme.dark(
+                  primary: primaryColor,
                   secondary: accentColor,
+                  surface: Color(0xFF2D2D2D),
+                  onSurface: Colors.white,
                 ),
-                scaffoldBackgroundColor: darkBackgroundColor,
-                appBarTheme: AppBarTheme(
-                  backgroundColor: darkPrimaryColor,
+                appBarTheme: const AppBarTheme(
+                  backgroundColor: Color(0xFF2D2D2D),
+                  elevation: 0,
                   titleTextStyle: TextStyle(
                     fontSize: 20,
                     fontWeight: FontWeight.bold,
-                    color: darkTextColor,
+                    color: Colors.white,
                   ),
+                  iconTheme: IconThemeData(color: Colors.white),
+                ),
+                cardTheme: const CardThemeData(color: Color(0xFF2D2D2D)),
+                iconTheme: const IconThemeData(color: Colors.white),
+                textTheme: const TextTheme(
+                  bodyLarge: TextStyle(color: Colors.white),
+                  bodyMedium: TextStyle(color: Colors.white),
+                  bodySmall: TextStyle(color: Colors.white70),
+                  titleLarge: TextStyle(color: Colors.white),
+                  titleMedium: TextStyle(color: Colors.white),
+                  titleSmall: TextStyle(color: Colors.white),
+                ),
+                inputDecorationTheme: InputDecorationTheme(
+                  filled: true,
+                  fillColor: const Color(0xFF2D2D2D),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: const BorderSide(color: Colors.grey),
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: const BorderSide(color: Colors.grey),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: const BorderSide(color: primaryColor, width: 2),
+                  ),
+                  labelStyle: const TextStyle(color: Colors.white),
+                  hintStyle: const TextStyle(color: Colors.white54),
+                ),
+                elevatedButtonTheme: ElevatedButtonThemeData(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: primaryColor,
+                    foregroundColor: Colors.white,
+                  ),
+                ),
+                dialogTheme: const DialogThemeData(
+                  backgroundColor: Color(0xFF2D2D2D),
+                  titleTextStyle: TextStyle(color: Colors.white),
+                  contentTextStyle: TextStyle(color: Colors.white70),
+                ),
+                bottomNavigationBarTheme: const BottomNavigationBarThemeData(
+                  backgroundColor: Color(0xFF2D2D2D),
+                  selectedItemColor: primaryColor,
+                  unselectedItemColor: Colors.white54,
                 ),
               ),
               themeMode: themeProvider.themeMode,
               initialRoute: '/',
               routes: {
-                // Agregar const mejora el rendimiento en las rutas al no reconstruir widgets inncesariamente
                 '/': (context) => const LoginScreen(),
                 '/register': (context) => const RegisterScreen(),
-                '/lost-pets': (context) => const LostPetsScreen(),
-                '/adopt': (context) => const AdoptScreen(),
+                '/home': (context) => const MainShell(),
                 '/qr': (context) => const QRScreen(),
+                '/qr-scanner': (context) => const QRScannerScreen(),
                 '/profile': (context) => const ProfileScreen(),
-                '/pet-id': (context) => const PetIdScreen(),
-                '/support': (context) => const SupportScreen(),
-                '/notifications': (context) => const NotificationsScreen(),
                 '/messages': (context) => const MessagesScreen(),
-                '/add-pet': (context) => const AddPetScreen(),
+                '/create-pet': (context) => const CreatePetScreen(),
                 '/recovery-password':
                     (context) => const RecoveryPasswordScreen(),
               },

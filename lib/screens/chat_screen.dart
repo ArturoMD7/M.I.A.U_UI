@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
-import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../services/api_service.dart';
 
 const Color primaryColor = Color(0xFFD68F5E);
 const Color backgroundColor = Colors.white;
@@ -30,14 +30,12 @@ class _ChatScreenState extends State<ChatScreen> {
   bool isSending = false;
   late SharedPreferences prefs;
   final ScrollController _scrollController = ScrollController();
-  late final String apiUrl;
-  late final String baseUrl;
+
+  String get baseUrl => '${apiService.baseUrl}/chats';
 
   @override
   void initState() {
     super.initState();
-    apiUrl = dotenv.env['API_URL'] ?? '192.168.1.133:8000/';
-    baseUrl = "$apiUrl/chats";
     _initPrefs();
   }
 
@@ -57,11 +55,21 @@ class _ChatScreenState extends State<ChatScreen> {
       );
 
       if (response.statusCode == 200) {
+        final decoded = jsonDecode(response.body);
+        List<dynamic> parsedMessages;
+        if (decoded is List) {
+          parsedMessages = decoded;
+        } else if (decoded is Map<String, dynamic> &&
+            decoded.containsKey('data')) {
+          parsedMessages = (decoded['data'] as List<dynamic>?) ?? [];
+        } else {
+          parsedMessages = [];
+        }
         setState(() {
-          messages = jsonDecode(response.body);
+          messages = parsedMessages;
           isLoading = false;
         });
-        _scrollToBottom(); // Desplazar hacia abajo al cargar los mensajes
+        _scrollToBottom();
       }
     } catch (e) {
       _showError('Error al cargar mensajes');
@@ -151,62 +159,75 @@ class _ChatScreenState extends State<ChatScreen> {
               decoration: BoxDecoration(
                 color: Colors.grey[50],
                 image: const DecorationImage(
-                  image: AssetImage('assets/chat_bg.png'), // Opcional: fondo de chat
+                  image: AssetImage(
+                    'assets/chat_bg.png',
+                  ), // Opcional: fondo de chat
                   fit: BoxFit.cover,
                   opacity: 0.05,
                 ),
               ),
-              child: isLoading
-                  ? Center(
-                child: CircularProgressIndicator(
-                  valueColor: AlwaysStoppedAnimation<Color>(primaryColor),
-                ),
-              )
-                  : messages.isEmpty
-                  ? Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(
-                      Icons.message_outlined,
-                      size: 64,
-                      color: Colors.grey[400],
-                    ),
-                    const SizedBox(height: 16),
-                    Text(
-                      'No hay mensajes aún',
-                      style: TextStyle(
-                        color: Colors.grey[600],
-                        fontSize: 18,
+              child:
+                  isLoading
+                      ? Center(
+                        child: CircularProgressIndicator(
+                          valueColor: AlwaysStoppedAnimation<Color>(
+                            primaryColor,
+                          ),
+                        ),
+                      )
+                      : messages.isEmpty
+                      ? Center(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(
+                              Icons.message_outlined,
+                              size: 64,
+                              color: Colors.grey[400],
+                            ),
+                            const SizedBox(height: 16),
+                            Text(
+                              'No hay mensajes aún',
+                              style: TextStyle(
+                                color: Colors.grey[600],
+                                fontSize: 18,
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            Text(
+                              'Envía el primer mensaje',
+                              style: TextStyle(
+                                color: Colors.grey[500],
+                                fontSize: 14,
+                              ),
+                            ),
+                          ],
+                        ),
+                      )
+                      : ListView.builder(
+                        controller: _scrollController,
+                        padding: const EdgeInsets.all(8),
+                        itemCount: messages.length,
+                        itemBuilder: (context, index) {
+                          final message = messages[index];
+                          final isMe =
+                              message['sender']['id'] ==
+                              prefs.getInt('user_id');
+                          return MessageBubble(
+                            message: message['content'],
+                            isMe: isMe,
+                            timestamp: message['timestamp'],
+                            isFirst:
+                                index == 0 ||
+                                messages[index - 1]['sender']['id'] !=
+                                    message['sender']['id'],
+                            isLast:
+                                index == messages.length - 1 ||
+                                messages[index + 1]['sender']['id'] !=
+                                    message['sender']['id'],
+                          );
+                        },
                       ),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      'Envía el primer mensaje',
-                      style: TextStyle(
-                        color: Colors.grey[500],
-                        fontSize: 14,
-                      ),
-                    ),
-                  ],
-                ),
-              )
-                  : ListView.builder(
-                controller: _scrollController,
-                padding: const EdgeInsets.all(8),
-                itemCount: messages.length,
-                itemBuilder: (context, index) {
-                  final message = messages[index];
-                  final isMe = message['sender']['id'] == prefs.getInt('user_id');
-                  return MessageBubble(
-                    message: message['content'],
-                    isMe: isMe,
-                    timestamp: message['timestamp'],
-                    isFirst: index == 0 || messages[index-1]['sender']['id'] != message['sender']['id'],
-                    isLast: index == messages.length-1 || messages[index+1]['sender']['id'] != message['sender']['id'],
-                  );
-                },
-              ),
             ),
           ),
           Container(
@@ -221,10 +242,7 @@ class _ChatScreenState extends State<ChatScreen> {
                 ),
               ],
             ),
-            padding: const EdgeInsets.symmetric(
-              horizontal: 16,
-              vertical: 8,
-            ),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             child: Row(
               children: [
                 Expanded(
@@ -242,12 +260,16 @@ class _ChatScreenState extends State<ChatScreen> {
                           horizontal: 16,
                           vertical: 12,
                         ),
-                        suffixIcon: messageController.text.isNotEmpty
-                            ? IconButton(
-                          icon: Icon(Icons.close, color: Colors.grey[600]),
-                          onPressed: () => messageController.clear(),
-                        )
-                            : null,
+                        suffixIcon:
+                            messageController.text.isNotEmpty
+                                ? IconButton(
+                                  icon: Icon(
+                                    Icons.close,
+                                    color: Colors.grey[600],
+                                  ),
+                                  onPressed: () => messageController.clear(),
+                                )
+                                : null,
                       ),
                       onSubmitted: (_) => sendMessage(),
                       maxLines: 3,
@@ -300,10 +322,7 @@ class MessageBubble extends StatelessWidget {
     final timeString = '${time.hour}:${time.minute.toString().padLeft(2, '0')}';
 
     return Padding(
-      padding: EdgeInsets.only(
-        top: isFirst ? 8 : 2,
-        bottom: isLast ? 8 : 2,
-      ),
+      padding: EdgeInsets.only(top: isFirst ? 8 : 2, bottom: isLast ? 8 : 2),
       child: Align(
         alignment: isMe ? Alignment.centerRight : Alignment.centerLeft,
         child: ConstrainedBox(
@@ -312,7 +331,7 @@ class MessageBubble extends StatelessWidget {
           ),
           child: Column(
             crossAxisAlignment:
-            isMe ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+                isMe ? CrossAxisAlignment.end : CrossAxisAlignment.start,
             children: [
               Container(
                 padding: const EdgeInsets.symmetric(
@@ -330,19 +349,14 @@ class MessageBubble extends StatelessWidget {
                 ),
                 child: Text(
                   message,
-                  style: TextStyle(
-                    color: isMe ? Colors.white : textColor,
-                  ),
+                  style: TextStyle(color: isMe ? Colors.white : textColor),
                 ),
               ),
               Padding(
                 padding: const EdgeInsets.only(top: 4, left: 8, right: 8),
                 child: Text(
                   timeString,
-                  style: TextStyle(
-                    color: Colors.grey[600],
-                    fontSize: 10,
-                  ),
+                  style: TextStyle(color: Colors.grey[600], fontSize: 10),
                 ),
               ),
             ],

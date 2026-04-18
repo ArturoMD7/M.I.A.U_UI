@@ -1,14 +1,9 @@
 import 'package:flutter/material.dart';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
-import 'package:flutter_dotenv/flutter_dotenv.dart';
+import '../services/api_service.dart';
 
 const Color primaryColor = Color(0xFFD68F5E);
-
-void main() async {
-  await dotenv.load(fileName: '.env');
-  runApp(const MaterialApp(home: RegisterScreen()));
-}
 
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({super.key});
@@ -42,11 +37,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
   bool cpValid = false;
   String? selectedColony;
 
-  String get apiUrl => dotenv.env['API_URL'] ?? 'http://192.168.1.131:8000';
-
-  // RUTA CORREGIDA
-  String get zipCodeApiUrl =>
-      dotenv.env['ZIP_CODE_API_URL'] ?? 'https://mexico-api.devaleff.com/api';
+  String get apiUrl => apiService.baseUrl;
+  String get zipCodeApiUrl => apiService.zipCodeApiUrl;
 
   Future<void> searchCP() async {
     final cp = cpController.text.trim();
@@ -178,10 +170,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
     setState(() => isLoading = true);
 
     try {
-      final response = await http.post(
-        Uri.parse('$apiUrl/users/signup/'),
-        headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({
+      final result = await apiService.post(
+        '/users/signup/',
+        body: {
           'name': nameController.text,
           'first_name': firstNameController.text,
           'last_name': lastNameController.text,
@@ -195,23 +186,25 @@ class _RegisterScreenState extends State<RegisterScreen> {
           'city': cityController.text,
           'state': stateController.text,
           'country': 'México',
-        }),
+        },
+        requiresAuth: false,
       );
 
-      if (response.statusCode == 201) {
+      if (result.success) {
         Navigator.pushNamed(context, '/');
       } else {
-        final error = jsonDecode(response.body);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(error['error']['message'] ?? 'Error al registrar'),
-          ),
-        );
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(result.message ?? 'Error al registrar')),
+          );
+        }
       }
     } catch (e) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Error de conexión: $e')));
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Error de conexión: $e')));
+      }
     } finally {
       setState(() => isLoading = false);
     }

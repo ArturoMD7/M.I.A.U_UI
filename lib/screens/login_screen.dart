@@ -1,8 +1,6 @@
 import 'package:flutter/material.dart';
-import 'dart:convert';
-import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:flutter_dotenv/flutter_dotenv.dart';
+import '../services/api_service.dart';
 
 // Colores principales
 const Color primaryColor = Color(0xFFD68F5E);
@@ -33,16 +31,9 @@ class _LoginScreenState extends State<LoginScreen> {
   final _formKey = GlobalKey<FormState>();
   final TextEditingController emailController = TextEditingController();
   final TextEditingController passwordController = TextEditingController();
-  late final String apiUrl;
-  late final String loginUrl;
   bool isLoading = false;
 
-  @override
-  void initState() {
-    super.initState();
-    apiUrl = dotenv.env['API_URL'] ?? 'http://192.168.1.133:8000/';
-    loginUrl = "$apiUrl/users/login/";
-  }
+  String get loginUrl => '${apiService.baseUrl}/users/login/';
 
   @override
   void dispose() {
@@ -59,45 +50,44 @@ class _LoginScreenState extends State<LoginScreen> {
     });
 
     try {
-      final response = await http.post(
-        Uri.parse(loginUrl),
-        headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({
+      final result = await apiService.post(
+        '/users/login/',
+        body: {
           'email': emailController.text.trim(),
           'password': passwordController.text,
-        }),
+        },
+        requiresAuth: false,
       );
 
       setState(() {
         isLoading = false;
       });
 
-      final Map<String, dynamic> responseData = jsonDecode(response.body);
+      if (result.success && result.data != null) {
+        final accessToken = result.data!['access']?.toString() ?? '';
+        final refreshToken = result.data!['refresh']?.toString() ?? '';
+        final userData = result.data!['user'] as Map<String, dynamic>?;
+        final String userEmail = userData?['email']?.toString() ?? 'Sin email';
 
-      if (response.statusCode == 200) {
-        final String accessToken = responseData['data']['access'] ?? '';
-        final String refreshToken = responseData['data']['refresh'] ?? '';
-        final Map<String, dynamic> userData = responseData['data']['user'];
-        final String userEmail = userData['email'] ?? 'Sin email';
         final prefs = await SharedPreferences.getInstance();
         await prefs.setString('jwt_token', accessToken);
         await prefs.setString('refresh_token', refreshToken);
-        await prefs.setInt('user_id', userData['id']);
+        if (userData != null && userData['id'] != null) {
+          await prefs.setString('user_id', userData['id'].toString());
+        }
         await prefs.setString('user_email', userEmail);
 
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(content: Text('Inicio de sesión exitoso')),
           );
-          Navigator.pushNamed(context, '/lost-pets');
+          Navigator.pushNamedAndRemoveUntil(context, '/home', (route) => false);
         }
       } else {
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Error: ${responseData['error']['message']}'),
-            ),
-          );
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: Text('Error: ${result.message}')));
         }
       }
     } catch (e) {

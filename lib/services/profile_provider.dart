@@ -5,18 +5,14 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:image_picker/image_picker.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'api_service.dart';
 
 class ProfileState {
   final bool isLoading;
   final Map<String, dynamic>? userInfo;
   final String? errorMessage;
 
-  ProfileState({
-    this.isLoading = false,
-    this.userInfo,
-    this.errorMessage,
-  });
+  ProfileState({this.isLoading = false, this.userInfo, this.errorMessage});
 
   ProfileState copyWith({
     String? profilePhotoUrl,
@@ -36,7 +32,7 @@ class ProfileProvider with ChangeNotifier {
   ProfileState _state = ProfileState();
   ProfileState get state => _state;
 
-  final String baseUrl = dotenv.env['API_URL'] ?? 'http://192.168.1.133:8000/';
+  String get baseUrl => apiService.baseUrl;
   File? _imageFile;
   bool _isDisposed = false;
 
@@ -48,7 +44,7 @@ class ProfileProvider with ChangeNotifier {
 
   Future<void> initialize() async {
     if (_state.userInfo != null) return;
-    
+
     await _loadProfilePhotoUrl();
     await _loadUserInfo();
   }
@@ -57,7 +53,7 @@ class ProfileProvider with ChangeNotifier {
     if (_imageFile == null) return;
 
     _updateState(isLoading: true, errorMessage: null);
-    
+
     try {
       final prefs = await SharedPreferences.getInstance();
       final userId = prefs.getString('userId');
@@ -72,16 +68,19 @@ class ProfileProvider with ChangeNotifier {
       final timestamp = DateTime.now().millisecondsSinceEpoch;
       final filename = 'profile_${userId}_$timestamp.jpg';
 
-      var request = http.MultipartRequest(
-        'POST',
-        Uri.parse('$baseUrl/users/update-profile-photo/'),
-      )
-        ..headers['Authorization'] = 'Bearer $token'
-        ..files.add(await http.MultipartFile.fromPath(
-          'profilePhoto',
-          _imageFile!.path,
-          filename: filename,
-        ));
+      var request =
+          http.MultipartRequest(
+              'POST',
+              Uri.parse('$baseUrl/users/update-profile-photo/'),
+            )
+            ..headers['Authorization'] = 'Bearer $token'
+            ..files.add(
+              await http.MultipartFile.fromPath(
+                'profilePhoto',
+                _imageFile!.path,
+                filename: filename,
+              ),
+            );
 
       var response = await request.send();
 
@@ -92,24 +91,24 @@ class ProfileProvider with ChangeNotifier {
         if (data['profilePhoto'] != null) {
           // Manejar tanto URLs relativas como absolutas
           String imageUrl = data['profilePhoto'];
-          
+
           // Si es una URL relativa, añadir el baseUrl
           if (!imageUrl.startsWith('http')) {
-            imageUrl = '$baseUrl${imageUrl.startsWith('/') ? imageUrl.substring(1) : imageUrl}';
+            imageUrl =
+                '$baseUrl${imageUrl.startsWith('/') ? imageUrl.substring(1) : imageUrl}';
           }
 
           // Añadir timestamp para evitar caché
           final cachedImageUrl = '$imageUrl?$timestamp';
-          
+
           await prefs.setString('profilePhotoUrl_$userId', imageUrl);
-          
-          _updateState(
-            profilePhotoUrl: cachedImageUrl,
-            errorMessage: null,
-          );
+
+          _updateState(profilePhotoUrl: cachedImageUrl, errorMessage: null);
         }
       } else {
-        _updateState(errorMessage: 'Error subiendo imagen: ${response.statusCode}');
+        _updateState(
+          errorMessage: 'Error subiendo imagen: ${response.statusCode}',
+        );
       }
     } catch (e) {
       _updateState(errorMessage: 'Error de conexión: ${e.toString()}');
@@ -131,13 +130,15 @@ class ProfileProvider with ChangeNotifier {
         _updateState(profilePhotoUrl: cachedUrl);
       }
     } catch (e) {
-      _updateState(errorMessage: 'Error cargando foto de perfil: ${e.toString()}');
+      _updateState(
+        errorMessage: 'Error cargando foto de perfil: ${e.toString()}',
+      );
     }
   }
 
   Future<void> _loadUserInfo() async {
     _updateState(isLoading: true, errorMessage: null);
-    
+
     try {
       final token = await _getToken();
       if (token == null) {
@@ -145,15 +146,17 @@ class ProfileProvider with ChangeNotifier {
         return;
       }
 
-      final response = await http.get(
-        Uri.parse('$baseUrl/users/me/'),
-        headers: {'Authorization': 'Bearer $token'},
-      ).timeout(const Duration(seconds: 10));
+      final response = await http
+          .get(
+            Uri.parse('$baseUrl/users/me/'),
+            headers: {'Authorization': 'Bearer $token'},
+          )
+          .timeout(const Duration(seconds: 10));
 
       if (response.statusCode == 200) {
         final userInfo = jsonDecode(response.body);
         _updateState(userInfo: userInfo);
-        
+
         // Guardar userId
         final prefs = await SharedPreferences.getInstance();
         await prefs.setString('userId', userInfo['id']?.toString() ?? '');
@@ -186,10 +189,10 @@ class ProfileProvider with ChangeNotifier {
       _updateState(errorMessage: 'Error seleccionando imagen');
     }
   }
-  
+
   Future<void> logout(BuildContext context) async {
     _updateState(isLoading: true);
-    
+
     try {
       final prefs = await SharedPreferences.getInstance();
       final token = await _getToken();
@@ -214,11 +217,7 @@ class ProfileProvider with ChangeNotifier {
       if (userId != null) await prefs.remove('profilePhotoUrl_$userId');
 
       if (!_isDisposed) {
-        _updateState(
-          profilePhotoUrl: null,
-          userInfo: null,
-          isLoading: false,
-        );
+        _updateState(profilePhotoUrl: null, userInfo: null, isLoading: false);
       }
 
       Navigator.pushNamedAndRemoveUntil(context, '/', (route) => false);
@@ -239,7 +238,7 @@ class ProfileProvider with ChangeNotifier {
     String? errorMessage,
   }) {
     if (_isDisposed) return;
-    
+
     _state = _state.copyWith(
       profilePhotoUrl: profilePhotoUrl,
       isLoading: isLoading,

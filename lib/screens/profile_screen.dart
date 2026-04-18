@@ -1,16 +1,13 @@
-import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:miauuic/services/theme_provider.dart';
-import 'package:miauuic/screens/custom_app_bar.dart';
 import 'package:miauuic/utils/user_posts_modal.dart';
 import 'package:miauuic/services/profile_provider.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:flutter_dotenv/flutter_dotenv.dart';
-import 'dart:convert';
 import 'package:image_picker/image_picker.dart';
 import 'dart:typed_data';
+import '../services/api_service.dart';
 
 const Color primaryColor = Color(0xFFD0894B);
 const Color iconColor = Colors.black;
@@ -18,18 +15,86 @@ const Color iconColor = Colors.black;
 class ProfileScreen extends StatelessWidget {
   const ProfileScreen({super.key});
 
+  Future<void> _logout(BuildContext context) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder:
+          (context) => AlertDialog(
+            title: const Text('Cerrar sesión'),
+            content: const Text('¿Estás seguro de que quieres cerrar sesión?'),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context, false),
+                child: const Text('Cancelar'),
+              ),
+              ElevatedButton(
+                onPressed: () => Navigator.pop(context, true),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.red,
+                  foregroundColor: Colors.white,
+                ),
+                child: const Text('Cerrar sesión'),
+              ),
+            ],
+          ),
+    );
+
+    if (confirmed == true && context.mounted) {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.clear();
+      if (context.mounted) {
+        Navigator.pushNamedAndRemoveUntil(context, '/', (route) => false);
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return ChangeNotifierProvider(
       create: (context) => ProfileProvider()..initialize(),
       child: Scaffold(
-        appBar: CustomAppBar(),
+        backgroundColor: const Color(0xFFF5F5F5),
+        appBar: AppBar(
+          backgroundColor: primaryColor,
+          elevation: 0,
+          leading: IconButton(
+            icon: const Icon(Icons.arrow_back, color: Colors.white),
+            onPressed: () => Navigator.pop(context),
+          ),
+          title: const Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Mi Perfil',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 20,
+                ),
+              ),
+              Text(
+                'Gestiona tu cuenta',
+                style: TextStyle(color: Colors.white70, fontSize: 12),
+              ),
+            ],
+          ),
+          actions: [
+            IconButton(
+              icon: const Icon(Icons.logout, color: Colors.white),
+              onPressed: () => _logout(context),
+              tooltip: 'Cerrar sesión',
+            ),
+            const SizedBox(width: 8),
+          ],
+        ),
         body: Consumer<ProfileProvider>(
           builder: (context, provider, _) {
             final state = provider.state;
 
             if (state.isLoading && state.userInfo == null) {
-              return const Center(child: CircularProgressIndicator());
+              return const Center(
+                child: CircularProgressIndicator(color: primaryColor),
+              );
             }
 
             if (state.errorMessage != null && state.userInfo == null) {
@@ -53,13 +118,14 @@ class _ProfileContent extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (state.userInfo == null) {
-      return const Center(child: CircularProgressIndicator());
+      return const Center(
+        child: CircularProgressIndicator(color: primaryColor),
+      );
     }
 
     final userData = state.userInfo!['data'] ?? state.userInfo!;
     final String fullName =
         '${userData['name'] ?? ''} ${userData['first_name'] ?? ''}'.trim();
-    // Obtener la URL de la foto de perfil si existe en el backend
     final String? profilePictureUrl = userData['profile_picture'];
 
     return SingleChildScrollView(
@@ -67,37 +133,31 @@ class _ProfileContent extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          Text(
-            "Mi Perfil",
-            style: Theme.of(context).textTheme.headlineSmall,
-            textAlign: TextAlign.center,
-          ),
           const SizedBox(height: 20),
-
-          // --- NUEVO: Avatar en el perfil ---
           CircleAvatar(
-            radius: 50,
-            backgroundColor: primaryColor.withOpacity(0.2),
+            radius: 60,
+            backgroundColor: primaryColor.withAlpha(26),
             backgroundImage:
                 profilePictureUrl != null && profilePictureUrl.isNotEmpty
                     ? NetworkImage(profilePictureUrl)
                     : null,
             child:
                 profilePictureUrl == null || profilePictureUrl.isEmpty
-                    ? const Icon(Icons.person, size: 50, color: primaryColor)
+                    ? const Icon(Icons.person, size: 60, color: primaryColor)
                     : null,
           ),
-          const SizedBox(height: 10),
-
+          const SizedBox(height: 16),
           Text(
             fullName.isEmpty ? 'Nombre no disponible' : fullName,
-            style: Theme.of(context).textTheme.titleLarge,
+            style: const TextStyle(
+              fontSize: 24,
+              fontWeight: FontWeight.bold,
+              color: Color(0xFF2D2D2D),
+            ),
           ),
           Text(
-            "ID de usuario: #${userData['id'] ?? 'N/A'}",
-            style: Theme.of(
-              context,
-            ).textTheme.bodyMedium?.copyWith(color: Colors.grey),
+            userData['email'] ?? '',
+            style: const TextStyle(fontSize: 14, color: Color(0xFF757575)),
           ),
           if (state.errorMessage != null) ...[
             const SizedBox(height: 10),
@@ -106,15 +166,34 @@ class _ProfileContent extends StatelessWidget {
               style: TextStyle(color: Theme.of(context).colorScheme.error),
             ),
           ],
-          const SizedBox(height: 20),
-          const Divider(),
-          _ThemeSwitch(),
-          _ColorBlindnessSettings(),
-          const Divider(),
-          const SizedBox(height: 10),
-          _ProfileActions(userInfo: userData, provider: provider),
+          const SizedBox(height: 24),
+          _buildCard([
+            _ThemeSwitch(),
+            const Divider(),
+            _ColorBlindnessSettings(),
+          ]),
+          const SizedBox(height: 16),
+          _buildCard([_ProfileActions(userInfo: userData, provider: provider)]),
         ],
       ),
+    );
+  }
+
+  Widget _buildCard(List<Widget> children) {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withAlpha(13),
+            blurRadius: 10,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      padding: const EdgeInsets.all(16),
+      child: Column(children: children),
     );
   }
 }
@@ -728,36 +807,28 @@ class _EditProfileScreenState extends State<_EditProfileScreen> {
     setState(() => _isLoading = true);
 
     try {
-      final String baseUrl =
-          dotenv.env['API_URL'] ?? 'http://localhost:8000/api';
       final prefs = await SharedPreferences.getInstance();
-      final String? token = prefs.getString('jwt_token');
-      final int? userId = prefs.getInt('user_id');
-      final Uri url = Uri.parse('$baseUrl/users/update/$userId');
+      final String? userId = prefs.getString('user_id');
 
-      // Usar MultipartRequest
-      final request = http.MultipartRequest('PUT', url);
+      if (userId == null) {
+        throw Exception('No se encontró el ID de usuario');
+      }
 
-      // Agregar Headers
-      request.headers.addAll({
-        'Accept': 'application/json',
-        if (token != null) 'Authorization': 'Bearer $token',
-      });
+      final fields = <String, String>{
+        'name': _nameController.text,
+        'first_name': _firstNameController.text,
+        'age': _ageController.text,
+        'phone_number': _phoneController.text,
+        'street': _streetController.text,
+        'neighborhood': _neighborhoodController.text,
+        'city': _cityController.text,
+        'cp': _cpController.text,
+        'state': _stateController.text,
+      };
 
-      // Agregar los campos de texto
-      request.fields['name'] = _nameController.text;
-      request.fields['first_name'] = _firstNameController.text;
-      request.fields['age'] = _ageController.text;
-      request.fields['phone_number'] = _phoneController.text;
-      request.fields['street'] = _streetController.text;
-      request.fields['neighborhood'] = _neighborhoodController.text;
-      request.fields['city'] = _cityController.text;
-      request.fields['cp'] = _cpController.text;
-      request.fields['state'] = _stateController.text;
-
-      // Agregar la imagen si se seleccionó una
+      final files = <http.MultipartFile>[];
       if (_imageBytes != null && _imageName != null) {
-        request.files.add(
+        files.add(
           http.MultipartFile.fromBytes(
             'profilePhoto',
             _imageBytes!,
@@ -766,10 +837,13 @@ class _EditProfileScreenState extends State<_EditProfileScreen> {
         );
       }
 
-      final streamedResponse = await request.send();
-      final response = await http.Response.fromStream(streamedResponse);
+      final result = await apiService.multipartPut(
+        '/users/update/$userId/',
+        fields: fields,
+        files: files.isNotEmpty ? files : null,
+      );
 
-      if (response.statusCode == 200 || response.statusCode == 201) {
+      if (result.success) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
@@ -779,10 +853,7 @@ class _EditProfileScreenState extends State<_EditProfileScreen> {
           Navigator.pop(context);
         }
       } else {
-        final errorData = jsonDecode(response.body);
-        throw Exception(
-          errorData['message'] ?? 'Error ${response.statusCode} al actualizar',
-        );
+        throw Exception(result.message ?? 'Error al actualizar');
       }
     } catch (e) {
       if (mounted) {

@@ -1,8 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_dotenv/flutter_dotenv.dart';
-import 'package:http/http.dart' as http;
-import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../services/api_service.dart';
 
 const Color primaryColor = Color(
   0xFFD0894B,
@@ -12,7 +10,6 @@ const Color iconColor = Colors.black;
 class CommentScreen extends StatefulWidget {
   final int postId;
 
-
   const CommentScreen({super.key, required this.postId});
 
   @override
@@ -21,7 +18,6 @@ class CommentScreen extends StatefulWidget {
 
 class _CommentScreenState extends State<CommentScreen> {
   late SharedPreferences prefs;
-  late String apiUrl;
   bool isLoading = true;
   List<dynamic> comments = [];
   String errorMessage = '';
@@ -36,7 +32,6 @@ class _CommentScreenState extends State<CommentScreen> {
 
   Future<void> _initializePrefs() async {
     prefs = await SharedPreferences.getInstance();
-    apiUrl = dotenv.env['API_URL'] ?? "192.168.1.133:8000";
     _loadComments();
   }
 
@@ -51,18 +46,17 @@ class _CommentScreenState extends State<CommentScreen> {
     }
 
     try {
-      final response = await http.get(
-        Uri.parse('$apiUrl/comments/?postId=${widget.postId}'),
-        headers: {"Authorization": "Bearer $token"},
+      final result = await apiService.get(
+        '/comments/',
+        queryParams: {'postId': widget.postId.toString()},
       );
 
-      if (response.statusCode == 200) {
-        final List<dynamic> commentsData = jsonDecode(response.body);
+      if (result.success && result.data != null) {
+        final List<dynamic> commentsData = result.data!['data'] ?? [];
         setState(() {
           comments = commentsData;
           isLoading = false;
         });
-        // Desplazarse al final después de cargar los comentarios
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (_scrollController.hasClients) {
             _scrollController.animateTo(
@@ -75,7 +69,7 @@ class _CommentScreenState extends State<CommentScreen> {
       } else {
         setState(() {
           isLoading = false;
-          errorMessage = "Error al cargar los comentarios";
+          errorMessage = result.message ?? "Error al cargar los comentarios";
         });
       }
     } catch (e) {
@@ -88,41 +82,39 @@ class _CommentScreenState extends State<CommentScreen> {
 
   Future<void> _sendComment(String commentText) async {
     final token = prefs.getString('jwt_token');
-    final userId = prefs.getInt('user_id');
+    final userId = prefs.getString('user_id');
     if (token == null || userId == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Debes iniciar sesión")),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text("Debes iniciar sesión")));
       return;
     }
 
     try {
-      final response = await http.post(
-        Uri.parse('$apiUrl/comments/'),
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": "Bearer $token",
-        },
-        body: jsonEncode({
+      final result = await apiService.post(
+        '/comments/',
+        body: {
           "comment": commentText,
           "postId": widget.postId,
-          "userId": userId,
-        }),
+          "userId": int.tryParse(userId),
+        },
       );
 
-      if (response.statusCode == 201) {
+      if (result.success) {
         _loadComments();
         commentController.clear();
-        FocusScope.of(context).unfocus(); // Ocultar teclado
+        FocusScope.of(context).unfocus();
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text("Error al enviar comentario")),
+          SnackBar(
+            content: Text(result.message ?? "Error al enviar comentario"),
+          ),
         );
       }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Error: $e")),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text("Error: $e")));
     }
   }
 
@@ -143,90 +135,94 @@ class _CommentScreenState extends State<CommentScreen> {
         children: [
           isLoading
               ? const Expanded(
-            child: Center(
-              child: CircularProgressIndicator(
-                valueColor: AlwaysStoppedAnimation<Color>(primaryColor),
-              ),
-            ),
-          )
+                child: Center(
+                  child: CircularProgressIndicator(
+                    valueColor: AlwaysStoppedAnimation<Color>(primaryColor),
+                  ),
+                ),
+              )
               : comments.isEmpty
               ? Expanded(
-            child: Center(
-              child: Text(
-                errorMessage.isEmpty
-                    ? "No hay comentarios aún"
-                    : errorMessage,
-                style: const TextStyle(
-                  fontSize: 18,
-                  color: Colors.grey,
+                child: Center(
+                  child: Text(
+                    errorMessage.isEmpty
+                        ? "No hay comentarios aún"
+                        : errorMessage,
+                    style: const TextStyle(fontSize: 18, color: Colors.grey),
+                  ),
                 ),
-              ),
-            ),
-          )
+              )
               : Expanded(
-            child: ListView.builder(
-              controller: _scrollController,
-              padding: const EdgeInsets.symmetric(vertical: 8),
-              itemCount: comments.length,
-              itemBuilder: (context, index) {
-                final comment = comments[index];
-                final userName = comment['user'] != null &&
-                    comment['user']['name'] != null
-                    ? comment['user']['name']
-                    : "Usuario desconocido";
+                child: ListView.builder(
+                  controller: _scrollController,
+                  padding: const EdgeInsets.symmetric(vertical: 8),
+                  itemCount: comments.length,
+                  itemBuilder: (context, index) {
+                    final comment = comments[index];
+                    final userName =
+                        comment['user'] != null &&
+                                comment['user']['name'] != null
+                            ? comment['user']['name']
+                            : "Usuario desconocido";
 
-                final commentDate = comment['createdAt'] != null
-                    ? DateTime.parse(comment['createdAt'])
-                    : null;
+                    final commentDate =
+                        comment['createdAt'] != null
+                            ? DateTime.parse(comment['createdAt'])
+                            : null;
 
-                return Card(
-                  margin: const EdgeInsets.symmetric(
-                      horizontal: 12, vertical: 4),
-                  elevation: 1,
-                  child: Padding(
-                    padding: const EdgeInsets.all(12),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
+                    return Card(
+                      margin: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 4,
+                      ),
+                      elevation: 1,
+                      child: Padding(
+                        padding: const EdgeInsets.all(12),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            CircleAvatar(
-                              backgroundColor: primaryColor.withOpacity(0.2),
-                              child: const Icon(Icons.person,
-                                  color: iconColor),
-                            ),
-                            const SizedBox(width: 12),
-                            Column(
-                              crossAxisAlignment:
-                              CrossAxisAlignment.start,
+                            Row(
                               children: [
-                                Text(
-                                  userName,
-                                  style: const TextStyle(
-                                    fontWeight: FontWeight.bold,
+                                CircleAvatar(
+                                  backgroundColor: primaryColor.withOpacity(
+                                    0.2,
+                                  ),
+                                  child: const Icon(
+                                    Icons.person,
+                                    color: iconColor,
                                   ),
                                 ),
-                                if (commentDate != null)
-                                  Text(
-                                    _formatDate(commentDate),
-                                    style: const TextStyle(
-                                      fontSize: 12,
-                                      color: Colors.grey,
+                                const SizedBox(width: 12),
+                                Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      userName,
+                                      style: const TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                      ),
                                     ),
-                                  ),
+                                    if (commentDate != null)
+                                      Text(
+                                        _formatDate(commentDate),
+                                        style: const TextStyle(
+                                          fontSize: 12,
+                                          color: Colors.grey,
+                                        ),
+                                      ),
+                                  ],
+                                ),
                               ],
                             ),
+                            const SizedBox(height: 8),
+                            Text(comment['comment'] ?? ''),
                           ],
                         ),
-                        const SizedBox(height: 8),
-                        Text(comment['comment'] ?? ''),
-                      ],
-                    ),
-                  ),
-                );
-              },
-            ),
-          ),
+                      ),
+                    );
+                  },
+                ),
+              ),
           Container(
             decoration: BoxDecoration(
               color: Colors.white,
@@ -260,7 +256,9 @@ class _CommentScreenState extends State<CommentScreen> {
                         borderSide: BorderSide(color: primaryColor, width: 2),
                       ),
                       contentPadding: const EdgeInsets.symmetric(
-                          horizontal: 16, vertical: 12),
+                        horizontal: 16,
+                        vertical: 12,
+                      ),
                     ),
                     maxLines: null,
                     textInputAction: TextInputAction.send,

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import '../services/pet_service.dart';
+import 'api_service.dart';
 
 class PetProvider with ChangeNotifier {
   final PetService _petService;
@@ -18,13 +19,9 @@ class PetProvider with ChangeNotifier {
     'Otro': 'Otro',
   };
 
-  // Tiempo mínimo entre fetches (5 segundos)
   static const Duration _minFetchInterval = Duration(seconds: 5);
 
-  PetProvider()
-    : _petService = PetService(
-        apiUrl: dotenv.env['API_URL'] ?? 'URL no definida',
-      );
+  PetProvider() : _petService = PetService(apiUrl: apiService.baseUrl);
 
   List<dynamic> get pets => _pets;
   bool get isLoading => _isLoading;
