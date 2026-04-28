@@ -4,6 +4,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
+import 'dart:io';
 import 'package:image_picker/image_picker.dart';
 import 'package:miauuic/core/constants/app_colors.dart';
 import 'package:miauuic/core/constants/app_dimens.dart';
@@ -178,7 +179,7 @@ class _HomeScreenState extends State<HomeScreen> {
     Map<String, dynamic> pet,
     String type,
     String? description,
-    List<String> images,
+    List<XFile> images,
   ) async {
     final prefs = await SharedPreferences.getInstance();
     final token = prefs.getString('jwt_token');
@@ -199,7 +200,10 @@ class _HomeScreenState extends State<HomeScreen> {
 
     try {
       final now = DateFormat('yyyy-MM-dd').format(DateTime.now());
-      final body = {
+      final baseUrl = apiService.baseUrl;
+
+      // Crear el post primero
+      final postBody = {
         "petId": pet['id'],
         "userId": userId,
         "title": type == 'lost' ? 'Mascota perdida' : 'Mascota en adopción',
@@ -210,21 +214,36 @@ class _HomeScreenState extends State<HomeScreen> {
             (type == 'lost' ? 'Mascota perdida' : 'Mascota en adopción'),
         "city": prefs.getString('user_city') ?? '',
       };
-      debugPrint("Creating post with body: $body");
-      final response = await apiService.post('/posts/', body: body);
-      debugPrint(
-        "Response: ${response.success} - ${response.message} - status: ${response.statusCode}",
-      );
-      if (response.success) {
-        final postId = response.data?['id'] ?? response.data?['data']?['id'];
+      
+      final postResponse = await apiService.post('/posts/', body: postBody);
+      
+      if (postResponse.success) {
+        final postId = postResponse.data?['id'] ?? postResponse.data?['data']?['id'];
+        
+        // Subir imágenes como multipart
         if (postId != null && images.isNotEmpty) {
-          for (final img in images) {
-            await apiService.post(
-              '/imgspost/',
-              body: {"idPost": postId, "imgURL": img},
+          for (var i = 0; i < images.length; i++) {
+            final request = http.MultipartRequest(
+              'POST',
+              Uri.parse('$baseUrl/imgspost/'),
             );
+            request.headers['Authorization'] = 'Bearer $token';
+            request.fields['idPost'] = postId.toString();
+            
+            final bytes = await images[i].readAsBytes();
+            request.files.add(
+              http.MultipartFile.fromBytes('imgURL', bytes, filename: 'post_image_$i.jpg'),
+            );
+            
+            final streamedResponse = await request.send();
+            final response = await http.Response.fromStream(streamedResponse);
+            
+            if (response.statusCode != 201) {
+              debugPrint("Error uploading image $i: ${response.body}");
+            }
           }
         }
+        
         if (mounted) {
           ScaffoldMessenger.of(
             context,
@@ -235,7 +254,7 @@ class _HomeScreenState extends State<HomeScreen> {
         if (mounted) {
           ScaffoldMessenger.of(
             context,
-          ).showSnackBar(SnackBar(content: Text(response.message ?? "Error")));
+          ).showSnackBar(SnackBar(content: Text(postResponse.message ?? "Error")));
         }
       }
     } catch (e) {
@@ -444,7 +463,7 @@ class _HomeScreenState extends State<HomeScreen> {
         ).showSnackBar(const SnackBar(content: Text('Debes iniciar sesión')));
       return;
     }
-    if (mounted)
+    if (mounted) {
       Navigator.push(
         context,
         MaterialPageRoute(
@@ -455,6 +474,7 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
         ),
       );
+    }
   }
 }
 
@@ -641,7 +661,7 @@ class _CreatePostSheet extends StatefulWidget {
     Map<String, dynamic> pet,
     String type,
     String? description,
-    List<String> images,
+    List<XFile> images,
   )
   onSelectPet;
 
@@ -662,7 +682,7 @@ class _CreatePostSheetState extends State<_CreatePostSheet> {
   Map<String, dynamic>? _selectedPet;
   String _postType = 'adoption';
   final TextEditingController _descriptionController = TextEditingController();
-  final List<String> _selectedImages = [];
+  final List<XFile> _selectedImages = [];
   final ImagePicker _picker = ImagePicker();
 
   @override
@@ -675,10 +695,8 @@ class _CreatePostSheetState extends State<_CreatePostSheet> {
     try {
       final XFile? image = await _picker.pickImage(source: ImageSource.gallery);
       if (image != null) {
-        final bytes = await image.readAsBytes();
-        final base64Image = base64Encode(bytes);
         setState(() {
-          _selectedImages.add(base64Image);
+          _selectedImages.add(image);
         });
       }
     } catch (e) {
@@ -694,10 +712,8 @@ class _CreatePostSheetState extends State<_CreatePostSheet> {
     try {
       final XFile? photo = await _picker.pickImage(source: ImageSource.camera);
       if (photo != null) {
-        final bytes = await photo.readAsBytes();
-        final base64Image = base64Encode(bytes);
         setState(() {
-          _selectedImages.add(base64Image);
+          _selectedImages.add(photo);
         });
       }
     } catch (e) {
@@ -914,8 +930,8 @@ class _CreatePostSheetState extends State<_CreatePostSheet> {
                           decoration: BoxDecoration(
                             borderRadius: BorderRadius.circular(8),
                             image: DecorationImage(
-                              image: MemoryImage(
-                                base64Decode(_selectedImages[i]),
+                              image: FileImage(
+                                File(_selectedImages[i].path),
                               ),
                               fit: BoxFit.cover,
                             ),

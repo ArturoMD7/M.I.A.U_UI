@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:miauuic/core/constants/app_colors.dart';
 import 'package:miauuic/core/constants/app_dimens.dart';
-import 'package:miauuic/widgets/common/cards.dart';
 
 class HelpScreen extends StatefulWidget {
   const HelpScreen({super.key});
@@ -11,7 +10,7 @@ class HelpScreen extends StatefulWidget {
 }
 
 class _HelpScreenState extends State<HelpScreen> {
-  List<Map<String, String>> _rescueContacts = [
+  final List<Map<String, String>> _rescueContacts = [
     {
       'name': 'Grupo de Adopción A',
       'phone': '+52 555 123 4567',

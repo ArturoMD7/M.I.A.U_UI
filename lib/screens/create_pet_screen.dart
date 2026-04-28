@@ -3,7 +3,7 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:http/http.dart' as http;
-import 'dart:convert';
+
 import 'package:shared_preferences/shared_preferences.dart';
 import '../services/api_service.dart';
 
@@ -14,6 +14,7 @@ class CreatePetScreen extends StatefulWidget {
   const CreatePetScreen({super.key, this.petToEdit});
 
   @override
+  // ignore: library_private_types_in_public_api
   _CreatePetScreenState createState() => _CreatePetScreenState();
 }
 
@@ -81,35 +82,40 @@ class _CreatePetScreenState extends State<CreatePetScreen> {
     setState(() => _isLoading = true);
 
     try {
-      final petData = <String, dynamic>{
-        "name": _nameController.text,
-        "age": _selectedAge,
-        "breed": _breedController.text,
-        "size": _selectedSize,
-        "petDetails":
-            _detailsController.text.isEmpty ? null : _detailsController.text,
-        "userId": userId,
-        "statusAdoption": _selectedStatus,
-      };
-
-      if (_imageBytes != null) {
-        petData["image"] = base64Encode(_imageBytes!);
-      }
-
       final url =
           isEditing
               ? "$_baseUrl/pets/${widget.petToEdit!['id']}/"
               : "$_baseUrl/pets/";
-      final method = isEditing ? http.put : http.post;
 
-      final response = await method(
+      final request = http.MultipartRequest(
+        isEditing ? 'PUT' : 'POST',
         Uri.parse(url),
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": "Bearer $token",
-        },
-        body: jsonEncode(petData),
       );
+
+      request.headers['Authorization'] = "Bearer $token";
+
+      request.fields['name'] = _nameController.text;
+      request.fields['age'] = _selectedAge.toString();
+      request.fields['breed'] = _breedController.text;
+      request.fields['size'] = _selectedSize ?? '';
+      request.fields['userId'] = userId;
+      request.fields['statusAdoption'] = _selectedStatus.toString();
+      if (_detailsController.text.isNotEmpty) {
+        request.fields['petDetails'] = _detailsController.text;
+      }
+
+      if (_imageBytes != null) {
+        request.files.add(
+          http.MultipartFile.fromBytes(
+            'image',
+            _imageBytes!,
+            filename: 'pet_image.jpg',
+          ),
+        );
+      }
+
+      final streamedResponse = await request.send();
+      final response = await http.Response.fromStream(streamedResponse);
 
       if ((isEditing && response.statusCode != 200) ||
           (!isEditing && response.statusCode != 201)) {
@@ -233,7 +239,7 @@ class _CreatePetScreenState extends State<CreatePetScreen> {
                 ),
                 const SizedBox(height: 16),
                 DropdownButtonFormField<int>(
-                  value: _selectedAge,
+                  initialValue: _selectedAge,
                   decoration: const InputDecoration(labelText: "Edad*"),
                   items:
                       _ageOptions.entries
@@ -260,7 +266,7 @@ class _CreatePetScreenState extends State<CreatePetScreen> {
                 ),
                 const SizedBox(height: 16),
                 DropdownButtonFormField<String>(
-                  value: _selectedSize,
+                  initialValue: _selectedSize,
                   decoration: const InputDecoration(labelText: "Tamaño*"),
                   items: [
                     const DropdownMenuItem(
@@ -285,7 +291,7 @@ class _CreatePetScreenState extends State<CreatePetScreen> {
                 ),
                 const SizedBox(height: 16),
                 DropdownButtonFormField<int>(
-                  value: _selectedStatus,
+                  initialValue: _selectedStatus,
                   decoration: const InputDecoration(labelText: "Estado*"),
                   items:
                       _statusOptions.entries

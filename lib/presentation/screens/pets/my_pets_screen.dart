@@ -14,10 +14,10 @@ class MyPetsScreen extends StatefulWidget {
   const MyPetsScreen({super.key});
 
   @override
-  State<MyPetsScreen> createState() => _MyPetsScreenState();
+  State<MyPetsScreen> createState() => MyPetsScreenState();
 }
 
-class _MyPetsScreenState extends State<MyPetsScreen> {
+class MyPetsScreenState extends State<MyPetsScreen> {
   late ScrollController _scrollController;
   bool _showFab = true;
 
@@ -63,6 +63,8 @@ class _MyPetsScreenState extends State<MyPetsScreen> {
       await Provider.of<PetProvider>(context, listen: false).fetchPets(token);
     }
   }
+
+  void refresh() => _loadPets();
 
   Future<String?> _getToken() async {
     final prefs = await SharedPreferences.getInstance();

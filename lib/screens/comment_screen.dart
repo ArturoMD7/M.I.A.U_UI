@@ -48,11 +48,18 @@ class _CommentScreenState extends State<CommentScreen> {
     try {
       final result = await apiService.get(
         '/comments/',
-        queryParams: {'postId': widget.postId.toString()},
+        queryParams: {'post': widget.postId.toString()},
       );
 
       if (result.success && result.data != null) {
-        final List<dynamic> commentsData = result.data!['data'] ?? [];
+        List<dynamic> commentsData;
+        if (result.data is List) {
+          commentsData = result.data as List<dynamic>;
+        } else if (result.data!['data'] != null) {
+          commentsData = result.data!['data'] as List<dynamic>;
+        } else {
+          commentsData = [];
+        }
         setState(() {
           comments = commentsData;
           isLoading = false;
@@ -93,11 +100,7 @@ class _CommentScreenState extends State<CommentScreen> {
     try {
       final result = await apiService.post(
         '/comments/',
-        body: {
-          "comment": commentText,
-          "postId": widget.postId,
-          "userId": int.tryParse(userId),
-        },
+        body: {"comment": commentText, "postId": widget.postId},
       );
 
       if (result.success) {
@@ -159,15 +162,16 @@ class _CommentScreenState extends State<CommentScreen> {
                   itemCount: comments.length,
                   itemBuilder: (context, index) {
                     final comment = comments[index];
+                    final user = comment['user'] as Map<String, dynamic>?;
                     final userName =
-                        comment['user'] != null &&
-                                comment['user']['name'] != null
-                            ? comment['user']['name']
+                        user != null
+                            ? '${user['name'] ?? ''} ${user['first_name'] ?? ''}'
+                                .trim()
                             : "Usuario desconocido";
 
                     final commentDate =
-                        comment['createdAt'] != null
-                            ? DateTime.parse(comment['createdAt'])
+                        comment['created_at'] != null
+                            ? DateTime.parse(comment['created_at'])
                             : null;
 
                     return Card(

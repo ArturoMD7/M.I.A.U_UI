@@ -114,15 +114,16 @@ class _QRScreenState extends State<QRScreen> {
 
     if (token == null) return;
 
-    final String generateQRUrl = "$baseUrl/generate-qr/";
+    final String generateQRUrl = "$baseUrl/codeqr/generate_qr/";
 
     try {
       final response = await http.post(
-        Uri.parse('$generateQRUrl$petId/'),
+        Uri.parse(generateQRUrl),
         headers: {
           'Authorization': 'Bearer $token',
           'Content-Type': 'application/json',
         },
+        body: jsonEncode({'pet_id': petId}),
       );
 
       if (response.statusCode == 201) {

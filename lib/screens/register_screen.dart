@@ -70,7 +70,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
       final url = Uri.parse('$zipCodeApiUrl/codigo-postal/$cp');
       final response = await http
           .get(url)
-          .timeout(const Duration(seconds: 10))
+          .timeout(const Duration(seconds: 20))
           .catchError((error) {
             throw 'Error de conexión: $error';
           });
@@ -171,7 +171,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
     try {
       final result = await apiService.post(
-        '/users/signup/',
+        '/users/',
         body: {
           'name': nameController.text,
           'first_name': firstNameController.text,
@@ -317,7 +317,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
               // Selector de colonias
               if (colonies.isNotEmpty)
                 DropdownButtonFormField<String>(
-                  value: selectedColony,
+                  initialValue: selectedColony,
                   isExpanded:
                       true, // Evita errores si el nombre de la colonia es muy largo
                   decoration: const InputDecoration(

@@ -6,7 +6,7 @@ import 'screens/login_screen.dart';
 import 'screens/register_screen.dart';
 import 'screens/qr_screen.dart';
 import 'screens/qr_scanner_screen.dart';
-import 'screens/profile_screen.dart';
+import 'presentation/screens/profile/profile_screen.dart';
 import 'screens/messages_screen.dart';
 import 'presentation/screens/main_shell.dart';
 import 'services/pet_provider.dart';
