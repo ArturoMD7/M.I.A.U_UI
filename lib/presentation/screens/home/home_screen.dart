@@ -122,7 +122,12 @@ class _HomeScreenState extends State<HomeScreen> {
                   orElse: () => null,
                 );
                 final postImgs =
-                    (imgs).where((img) => img['idPost'] == post['id']).toList();
+                    (imgs)
+                        .where((img) => img['idPost'] == post['id'])
+                        .map<String>(
+                          (img) => img['imgURL'].toString(),
+                        ) // Forzamos a String
+                        .toList();
                 final userIdPost = post['userId'];
                 final user = (users).firstWhere(
                   (u) => u['id'] == userIdPost,
@@ -563,24 +568,32 @@ class _PostCard extends StatelessWidget {
               child: ListView.builder(
                 scrollDirection: Axis.horizontal,
                 itemCount: images.length,
-                itemBuilder:
-                    (c, i) => CachedNetworkImage(
-                      imageUrl: '$mediaUrl${images[i]['imgURL']}',
-                      width: MediaQuery.of(context).size.width - 32,
-                      fit: BoxFit.cover,
-                      placeholder:
-                          (c, url) => Container(
-                            color: Colors.grey[200],
-                            child: const Center(
-                              child: CircularProgressIndicator(),
-                            ),
+                itemBuilder: (c, i) {
+                  // 1. Obtenemos la URL que ya extrajimos antes
+                  final String imageUrl = images[i];
+
+                  return CachedNetworkImage(
+                    // 2. Si la URL ya empieza con http, no le sumes el mediaUrl
+                    imageUrl:
+                        imageUrl.startsWith('http')
+                            ? imageUrl
+                            : '$mediaUrl$imageUrl',
+                    width: MediaQuery.of(context).size.width - 32,
+                    fit: BoxFit.cover,
+                    placeholder:
+                        (c, url) => Container(
+                          color: Colors.grey[200],
+                          child: const Center(
+                            child: CircularProgressIndicator(),
                           ),
-                      errorWidget:
-                          (c, url, err) => Container(
-                            color: Colors.grey[200],
-                            child: const Icon(Icons.error),
-                          ),
-                    ),
+                        ),
+                    errorWidget:
+                        (c, url, err) => Container(
+                          color: Colors.grey[200],
+                          child: const Icon(Icons.error),
+                        ),
+                  );
+                },
               ),
             ),
           if (pet != null)
