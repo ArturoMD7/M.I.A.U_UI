@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:miauuic/presentation/screens/home/home_screen.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:image_picker/image_picker.dart';
@@ -77,7 +78,11 @@ class ProfileScreenState extends State<ProfileScreen> {
       elevation: 0,
       leading: IconButton(
         icon: const Icon(Icons.arrow_back, color: Colors.white),
-        onPressed: () => Navigator.pop(context),
+        onPressed:
+            () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (context) => const HomeScreen()),
+            ),
       ),
       title: const Column(
         crossAxisAlignment: CrossAxisAlignment.start,

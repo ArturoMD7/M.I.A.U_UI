@@ -26,7 +26,7 @@ class PetService {
   }
 
   Future<List<dynamic>> getPets(String token) async {
-    final url = Uri.parse('$apiUrl/pets/');
+    final url = Uri.parse('$apiUrl/pets/my-pets/');
     final response = await http.get(
       url,
       headers: {

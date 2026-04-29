@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:qr_flutter/qr_flutter.dart';
+import 'package:miauuic/presentation/screens/pets/my_pets_screen.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -28,38 +28,58 @@ class _QRScreenState extends State<QRScreen> {
     fetchMyPets();
   }
 
-  void generateAndDownloadPDF(String qrData, Map<String, dynamic> pet) async {
-    final pdf = pw.Document();
+  void generateAndDownloadPDF(Map<String, dynamic> pet) async {
+    try {
+      final pdf = pw.Document();
 
-    pdf.addPage(
-      pw.Page(
-        build: (pw.Context context) {
-          return pw.Column(
-            crossAxisAlignment: pw.CrossAxisAlignment.start,
-            children: [
-              pw.Text("Datos del QR", style: pw.TextStyle(fontSize: 24)),
-              pw.SizedBox(height: 10),
-              pw.Text("Nombre: ${pet['name'] ?? 'Sin nombre'}"),
-              pw.Text("Raza: ${pet['breed'] ?? 'Sin raza'}"),
-              pw.Text("Datos QR: $qrData"),
-              pw.SizedBox(height: 20),
-              pw.Center(
-                child: pw.BarcodeWidget(
-                  barcode: pw.Barcode.qrCode(),
-                  data: qrData,
+      final qrImageUrl = pet['qrUrl'];
+      if (qrImageUrl == null) {
+        print("No hay URL de QR disponible");
+        return;
+      }
+
+      final response = await http.get(Uri.parse(qrImageUrl));
+      final qrImage = pw.MemoryImage(response.bodyBytes);
+
+      //Crear el diseño del PDF
+      pdf.addPage(
+        pw.Page(
+          build: (pw.Context context) {
+            return pw.Column(
+              crossAxisAlignment: pw.CrossAxisAlignment.center,
+              children: [
+                pw.Header(
+                  level: 0,
+                  child: pw.Text("Identificación de Mascota"),
+                ),
+                pw.SizedBox(height: 20),
+                pw.Text("Nombre: ${pet['name']}"),
+                pw.Text("Raza: ${pet['breed']}"),
+                pw.SizedBox(height: 20),
+                pw.Image(
+                  qrImage,
                   width: 200,
                   height: 200,
+                ), // Aquí dibujamos el QR
+                pw.SizedBox(height: 20),
+                pw.Text(
+                  "Escanea este código para ver mi información.",
+                  style: pw.TextStyle(fontSize: 12, color: PdfColors.grey),
                 ),
-              ),
-            ],
-          );
-        },
-      ),
-    );
+              ],
+            );
+          },
+        ),
+      );
 
-    await Printing.layoutPdf(
-      onLayout: (PdfPageFormat format) async => pdf.save(),
-    );
+      // Guardar o Compartir
+      await Printing.sharePdf(
+        bytes: await pdf.save(),
+        filename: 'QR_${pet['name']}.pdf',
+      );
+    } catch (e) {
+      print("Error generando PDF: $e");
+    }
   }
 
   Future<void> fetchMyPets() async {
@@ -73,7 +93,7 @@ class _QRScreenState extends State<QRScreen> {
       return;
     }
 
-    final String petsUrl = "$baseUrl/pets/";
+    final String petsUrl = "$baseUrl/pets/my-pets/";
 
     try {
       final response = await http.get(
@@ -149,7 +169,7 @@ class _QRScreenState extends State<QRScreen> {
 
     if (token == null) return;
 
-    final String deleteQRUrl = "$baseUrl/qr/delete/";
+    final String deleteQRUrl = "$baseUrl/codeqr/";
 
     try {
       final response = await http.delete(
@@ -157,10 +177,14 @@ class _QRScreenState extends State<QRScreen> {
         headers: {'Authorization': 'Bearer $token'},
       );
 
-      if (response.statusCode == 200) {
+      if (response.statusCode == 204) {
         fetchMyPets();
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('QR eliminado correctamente')),
+        );
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (context) => const MyPetsScreen()),
         );
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -210,6 +234,16 @@ class _QRScreenState extends State<QRScreen> {
       appBar: AppBar(
         title: const Text('Generar QR'),
         backgroundColor: const Color(0xFFD0894B),
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          onPressed: () {
+            Navigator.pushNamedAndRemoveUntil(
+              context,
+              '/home',
+              (route) => false,
+            );
+          },
+        ),
       ),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
@@ -236,27 +270,15 @@ class _QRScreenState extends State<QRScreen> {
                       final pet = myPets[index];
                       final petId = pet['id'];
                       final hasQR = pet['qrId'] != null;
-                      print("usuarios");
-                      final user =
-                          (pet['userId'] != null && pet['userId'] is Map)
-                              ? pet['userId']
-                              : {};
-                      print(user);
+                      final status = _getStatusText(pet['statusAdoption']);
 
                       // Generar el contenido del QR con información completa
                       final qrContent = """
-                                Nombre de la mascota: ${pet['name'] ?? 'No disponible'}
-                                Edad: ${pet['age'] ?? 'No disponible'}
-                                Raza: ${pet['breed'] ?? 'No disponible'}
-                                Tamaño: ${pet['size'] ?? 'No disponible'}
-                                Estado: ${_getStatusText(pet['statusAdoption'])}
-
-                                Dueño:
-                                - Nombre: ${user['name'] ?? 'No disponible'} ${user['first_name'] ?? ''}
-                                - Email: ${user['email'] ?? 'No disponible'}
-                                - Teléfono: ${user['phone_number'] ?? 'No disponible'}
-                                - Ubicación: ${user['neighborhood'] ?? ''}, ${user['city'] ?? ''}, ${user['state'] ?? ''}
-                            """;
+                      Nombre: ${pet['name'] ?? 'No disponible'}
+                      Edad: ${pet['age'] ?? 'No disponible'}
+                      Estado: $status
+                      Nota: Los datos del dueño agregados en el QR son su nombre y su correo
+                      """;
 
                       return Card(
                         elevation: 3,
@@ -275,38 +297,13 @@ class _QRScreenState extends State<QRScreen> {
                               ),
                               const SizedBox(height: 10),
                               Text(
-                                "Estatus de adopcion: ${pet['statusAdoption'] ?? "No disponible"}",
-                                style: const TextStyle(fontSize: 14),
-                              ),
-                              const SizedBox(height: 10),
-                              Text(
-                                "Dueño: ${user['name'] ?? 'No disponible'} ${user['first_name'] ?? ''}",
+                                status,
                                 style: const TextStyle(fontSize: 14),
                               ),
                               const SizedBox(height: 10),
                               if (hasQR)
                                 Column(
                                   children: [
-                                    QrImageView(
-                                      data: qrContent,
-                                      version: QrVersions.auto,
-                                      size: 150.0,
-                                    ),
-                                    const SizedBox(height: 10),
-                                    ElevatedButton(
-                                      onPressed:
-                                          () => generateAndDownloadPDF(
-                                            qrContent,
-                                            pet,
-                                          ),
-                                      style: ElevatedButton.styleFrom(
-                                        backgroundColor: Colors.orange,
-                                      ),
-                                      child: const Text(
-                                        "Ver PDF",
-                                        style: TextStyle(color: Colors.white),
-                                      ),
-                                    ),
                                     const SizedBox(height: 10),
                                     Row(
                                       mainAxisAlignment:
@@ -314,12 +311,12 @@ class _QRScreenState extends State<QRScreen> {
                                       children: [
                                         ElevatedButton(
                                           onPressed:
-                                              () => _showQRDetails(qrContent),
+                                              () => generateAndDownloadPDF(pet),
                                           style: ElevatedButton.styleFrom(
                                             backgroundColor: Colors.green,
                                           ),
                                           child: const Text(
-                                            "Ver Info",
+                                            "Ver PDF",
                                             style: TextStyle(
                                               color: Colors.white,
                                             ),

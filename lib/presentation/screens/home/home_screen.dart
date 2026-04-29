@@ -44,6 +44,7 @@ class _HomeScreenState extends State<HomeScreen> {
     _scrollController = ScrollController();
     _scrollController.addListener(_onScroll);
     _loadData();
+    fetchPosts();
   }
 
   @override
@@ -81,7 +82,7 @@ class _HomeScreenState extends State<HomeScreen> {
       final baseUrl = apiService.baseUrl;
 
       final petsRes = await http.get(
-        Uri.parse('$baseUrl/pets/'),
+        Uri.parse('$baseUrl/pets/my-pets/'),
         headers: {"Authorization": "Bearer $token"},
       );
       final postsRes = await http.get(
@@ -156,6 +157,7 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   void _showCreatePostDialog() {
+    fetchPosts();
     final isDark = Theme.of(context).brightness == Brightness.dark;
     showModalBottomSheet(
       context: context,
@@ -214,12 +216,13 @@ class _HomeScreenState extends State<HomeScreen> {
             (type == 'lost' ? 'Mascota perdida' : 'Mascota en adopción'),
         "city": prefs.getString('user_city') ?? '',
       };
-      
+
       final postResponse = await apiService.post('/posts/', body: postBody);
-      
+
       if (postResponse.success) {
-        final postId = postResponse.data?['id'] ?? postResponse.data?['data']?['id'];
-        
+        final postId =
+            postResponse.data?['id'] ?? postResponse.data?['data']?['id'];
+
         // Subir imágenes como multipart
         if (postId != null && images.isNotEmpty) {
           for (var i = 0; i < images.length; i++) {
@@ -229,21 +232,25 @@ class _HomeScreenState extends State<HomeScreen> {
             );
             request.headers['Authorization'] = 'Bearer $token';
             request.fields['idPost'] = postId.toString();
-            
+
             final bytes = await images[i].readAsBytes();
             request.files.add(
-              http.MultipartFile.fromBytes('imgURL', bytes, filename: 'post_image_$i.jpg'),
+              http.MultipartFile.fromBytes(
+                'imgURL',
+                bytes,
+                filename: 'post_image_$i.jpg',
+              ),
             );
-            
+
             final streamedResponse = await request.send();
             final response = await http.Response.fromStream(streamedResponse);
-            
+
             if (response.statusCode != 201) {
               debugPrint("Error uploading image $i: ${response.body}");
             }
           }
         }
-        
+
         if (mounted) {
           ScaffoldMessenger.of(
             context,
@@ -252,9 +259,9 @@ class _HomeScreenState extends State<HomeScreen> {
         }
       } else {
         if (mounted) {
-          ScaffoldMessenger.of(
-            context,
-          ).showSnackBar(SnackBar(content: Text(postResponse.message ?? "Error")));
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(postResponse.message ?? "Error")),
+          );
         }
       }
     } catch (e) {
@@ -930,9 +937,7 @@ class _CreatePostSheetState extends State<_CreatePostSheet> {
                           decoration: BoxDecoration(
                             borderRadius: BorderRadius.circular(8),
                             image: DecorationImage(
-                              image: FileImage(
-                                File(_selectedImages[i].path),
-                              ),
+                              image: FileImage(File(_selectedImages[i].path)),
                               fit: BoxFit.cover,
                             ),
                           ),
