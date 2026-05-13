@@ -29,6 +29,7 @@ class _HomeScreenState extends State<HomeScreen> {
   bool _isLoading = true;
   String _selectedFilter = 'all';
   String? _userState;
+  int _currentUserId = 0;
   late ScrollController _scrollController;
   bool _showFab = true;
 
@@ -64,7 +65,10 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Future<void> _loadData() async {
     final prefs = await SharedPreferences.getInstance();
-    setState(() => _userState = prefs.getString('user_state'));
+    setState(() {
+      _userState = prefs.getString('user_state');
+      _currentUserId = int.tryParse(prefs.getString('user_id') ?? '') ?? 0;
+    });
     await fetchPosts();
   }
 
@@ -89,53 +93,42 @@ class _HomeScreenState extends State<HomeScreen> {
         Uri.parse('$baseUrl/posts/'),
         headers: {"Authorization": "Bearer $token"},
       );
-      final imgsRes = await http.get(
-        Uri.parse('$baseUrl/imgspost/'),
-        headers: {"Authorization": "Bearer $token"},
-      );
-      final usersRes = await http.get(
-        Uri.parse('$baseUrl/users/'),
-        headers: {"Authorization": "Bearer $token"},
-      );
 
       final pets = jsonDecode(petsRes.body)['data'] ?? [];
-      final posts = jsonDecode(postsRes.body)['data'] ?? [];
-      final imgs = jsonDecode(imgsRes.body)['data'] ?? [];
-      final users = jsonDecode(usersRes.body)['data'] ?? [];
+      final postsRaw = jsonDecode(postsRes.body)['data'] ?? [];
 
       final uidStr = prefs.getString('user_id');
       final int userId = int.tryParse(uidStr ?? '') ?? 0;
 
-      debugPrint("userId: $userId");
-      debugPrint("pets: $pets");
-
       _myPets = (pets).where((p) => p['userId'] == userId).toList();
 
-      debugPrint("myPets: $_myPets");
-
       final processed =
-          (posts)
+          (postsRaw)
               .map((post) {
-                final petId = post['petId'];
-                final pet = (pets).firstWhere(
-                  (p) => p['id'] == petId,
-                  orElse: () => null,
-                );
-                final postImgs =
-                    (imgs)
-                        .where((img) => img['idPost'] == post['id'])
-                        .map<String>(
-                          (img) => img['imgURL'].toString(),
-                        ) // Forzamos a String
-                        .toList();
-                final userIdPost = post['userId'];
-                final user = (users).firstWhere(
-                  (u) => u['id'] == userIdPost,
-                  orElse: () => null,
-                );
-                return {...post, 'pet': pet, 'images': postImgs, 'user': user};
+                final pet = post['pet'] as Map<String, dynamic>?;
+                final imagesFromPost = post['images'] as List<dynamic>?;
+
+                if (pet == null) return null;
+
+                return {
+                  ...post,
+                  'pet': pet,
+                  'images':
+                      imagesFromPost != null
+                          ? imagesFromPost
+                              .map<String>(
+                                (img) => img['imgURL']?.toString() ?? '',
+                              )
+                              .toList()
+                          : <String>[],
+                  'user': {
+                    'name': post['user_name'] ?? '',
+                    'first_name': '',
+                    'profilePhoto': post['user_profile_photo'],
+                  },
+                };
               })
-              .where((p) => p['pet'] != null)
+              .where((p) => p != null)
               .toList();
 
       setState(() {
@@ -266,6 +259,54 @@ class _HomeScreenState extends State<HomeScreen> {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(content: Text(postResponse.message ?? "Error")),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text("Error: $e")));
+      }
+    }
+  }
+
+  Future<void> _deletePost(int postId) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder:
+          (ctx) => AlertDialog(
+            title: const Text("Eliminar publicación"),
+            content: const Text("¿Estás seguro de eliminar esta publicación?"),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx, false),
+                child: const Text("Cancelar"),
+              ),
+              TextButton(
+                onPressed: () => Navigator.pop(ctx, true),
+                style: TextButton.styleFrom(foregroundColor: Colors.red),
+                child: const Text("Eliminar"),
+              ),
+            ],
+          ),
+    );
+
+    if (confirmed != true) return;
+
+    try {
+      final result = await apiService.delete('/posts/$postId/');
+      if (result.success) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text("Publicación eliminada")),
+          );
+          fetchPosts();
+        }
+      } else {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(result.message ?? "Error al eliminar")),
           );
         }
       }
@@ -437,7 +478,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Widget _buildBody() {
     if (_isLoading) return const LoadingIndicator();
-    if (_posts.isEmpty)
+    if (_posts.isEmpty) {
       return EmptyStateWidget(
         icon: Icons.pets,
         title: 'No hay publicaciones',
@@ -445,6 +486,7 @@ class _HomeScreenState extends State<HomeScreen> {
         actionText: 'Crear',
         onAction: _showCreatePostDialog,
       );
+    }
     return RefreshIndicator(
       onRefresh: fetchPosts,
       child: ListView.builder(
@@ -454,8 +496,13 @@ class _HomeScreenState extends State<HomeScreen> {
         itemBuilder:
             (c, i) => _PostCard(
               post: _posts[i],
+              currentUserId: _currentUserId,
               onComment: () => _openComments(_posts[i]['id']),
               onMessage: () => _openMessage(_posts[i]['user']),
+              onDelete:
+                  _posts[i]['userId'] == _currentUserId
+                      ? () => _deletePost(_posts[i]['id'])
+                      : null,
             ),
       ),
     );
@@ -469,10 +516,11 @@ class _HomeScreenState extends State<HomeScreen> {
     final prefs = await SharedPreferences.getInstance();
     final uidStr = prefs.getString('user_id');
     if (uidStr == null) {
-      if (mounted)
+      if (mounted) {
         ScaffoldMessenger.of(
           context,
         ).showSnackBar(const SnackBar(content: Text('Debes iniciar sesión')));
+      }
       return;
     }
     if (mounted) {
@@ -492,11 +540,15 @@ class _HomeScreenState extends State<HomeScreen> {
 
 class _PostCard extends StatelessWidget {
   final dynamic post;
+  final int currentUserId;
   final VoidCallback onComment, onMessage;
+  final VoidCallback? onDelete;
   const _PostCard({
     required this.post,
+    required this.currentUserId,
     required this.onComment,
     required this.onMessage,
+    this.onDelete,
   });
 
   @override
@@ -665,6 +717,15 @@ class _PostCard extends StatelessWidget {
                   label: const Text('Mensaje'),
                   onPressed: onMessage,
                 ),
+                if (onDelete != null)
+                  TextButton.icon(
+                    icon: const Icon(Icons.delete_outline, color: Colors.red),
+                    label: const Text(
+                      'Eliminar',
+                      style: TextStyle(color: Colors.red),
+                    ),
+                    onPressed: onDelete,
+                  ),
               ],
             ),
           ),

@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../services/api_service.dart';
@@ -31,8 +30,6 @@ class _ChatScreenState extends State<ChatScreen> {
   late SharedPreferences prefs;
   final ScrollController _scrollController = ScrollController();
 
-  String get baseUrl => '${apiService.baseUrl}/chats';
-
   @override
   void initState() {
     super.initState();
@@ -49,19 +46,14 @@ class _ChatScreenState extends State<ChatScreen> {
     if (token == null) return;
 
     try {
-      final response = await http.get(
-        Uri.parse('$baseUrl/${widget.chatId}/messages/'),
-        headers: {'Authorization': 'Bearer $token'},
-      );
+      final result = await apiService.get('/chats/${widget.chatId}/messages/');
 
-      if (response.statusCode == 200) {
-        final decoded = jsonDecode(response.body);
+      if (result.success && result.data != null) {
         List<dynamic> parsedMessages;
-        if (decoded is List) {
-          parsedMessages = decoded;
-        } else if (decoded is Map<String, dynamic> &&
-            decoded.containsKey('data')) {
-          parsedMessages = (decoded['data'] as List<dynamic>?) ?? [];
+        if (result.data is List) {
+          parsedMessages = result.data as List<dynamic>;
+        } else if (result.data!['data'] != null) {
+          parsedMessages = result.data!['data'] as List<dynamic>;
         } else {
           parsedMessages = [];
         }
@@ -87,18 +79,17 @@ class _ChatScreenState extends State<ChatScreen> {
     messageController.clear();
 
     try {
-      final response = await http.post(
-        Uri.parse('$baseUrl/${widget.chatId}/messages/create/'),
-        headers: {
-          'Authorization': 'Bearer $token',
-          'Content-Type': 'application/json',
-        },
-        body: jsonEncode({'content': message}),
+      final result = await apiService.post(
+        '/chats/${widget.chatId}/messages/',
+        body: {'content': message},
       );
 
-      if (response.statusCode == 201) {
+      if (result.success) {
         await fetchMessages();
         await _markMessagesAsRead();
+      } else {
+        _showError(result.message ?? 'Error al enviar mensaje');
+        messageController.text = message;
       }
     } catch (e) {
       _showError('Error al enviar mensaje');
@@ -109,13 +100,15 @@ class _ChatScreenState extends State<ChatScreen> {
   }
 
   Future<void> _markMessagesAsRead() async {
-    final String? token = prefs.getString('jwt_token');
-    if (token == null) return;
-
-    await http.put(
-      Uri.parse('$baseUrl/${widget.chatId}/mark-read/'),
-      headers: {'Authorization': 'Bearer $token'},
+    final result = await apiService.post(
+      '/chats/${widget.chatId}/messages/mark-read/',
     );
+    if (result.success) {
+      final unreadCount = prefs.getInt('unread_messages') ?? 0;
+      if (unreadCount > 0) {
+        await prefs.setInt('unread_messages', unreadCount - 1);
+      }
+    }
   }
 
   void _scrollToBottom() {
@@ -156,16 +149,7 @@ class _ChatScreenState extends State<ChatScreen> {
         children: [
           Expanded(
             child: Container(
-              decoration: BoxDecoration(
-                color: Colors.grey[50],
-                image: const DecorationImage(
-                  image: AssetImage(
-                    'assets/chat_bg.png',
-                  ), // Opcional: fondo de chat
-                  fit: BoxFit.cover,
-                  opacity: 0.05,
-                ),
-              ),
+              decoration: BoxDecoration(color: Colors.grey[50]),
               child:
                   isLoading
                       ? Center(

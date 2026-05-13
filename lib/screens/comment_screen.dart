@@ -1,10 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import '../services/api_service.dart';
 
-const Color primaryColor = Color(
-  0xFFD0894B,
-); // Color marrón claro similar al de la imagen
+const Color primaryColor = Color(0xFFD0894B);
 const Color iconColor = Colors.black;
 
 class CommentScreen extends StatefulWidget {
@@ -23,6 +22,7 @@ class _CommentScreenState extends State<CommentScreen> {
   String errorMessage = '';
   TextEditingController commentController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
+  int? _currentUserId;
 
   @override
   void initState() {
@@ -32,6 +32,7 @@ class _CommentScreenState extends State<CommentScreen> {
 
   Future<void> _initializePrefs() async {
     prefs = await SharedPreferences.getInstance();
+    _currentUserId = int.tryParse(prefs.getString('user_id') ?? '');
     _loadComments();
   }
 
@@ -66,10 +67,8 @@ class _CommentScreenState extends State<CommentScreen> {
         });
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (_scrollController.hasClients) {
-            _scrollController.animateTo(
+            _scrollController.jumpTo(
               _scrollController.position.maxScrollExtent,
-              duration: const Duration(milliseconds: 300),
-              curve: Curves.easeOut,
             );
           }
         });
@@ -89,8 +88,7 @@ class _CommentScreenState extends State<CommentScreen> {
 
   Future<void> _sendComment(String commentText) async {
     final token = prefs.getString('jwt_token');
-    final userId = prefs.getString('user_id');
-    if (token == null || userId == null) {
+    if (token == null) {
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(const SnackBar(content: Text("Debes iniciar sesión")));
@@ -119,6 +117,64 @@ class _CommentScreenState extends State<CommentScreen> {
         context,
       ).showSnackBar(SnackBar(content: Text("Error: $e")));
     }
+  }
+
+  Future<void> _deleteComment(int commentId) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder:
+          (ctx) => AlertDialog(
+            title: const Text("Eliminar comentario"),
+            content: const Text("¿Estás seguro de eliminar este comentario?"),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx, false),
+                child: const Text("Cancelar"),
+              ),
+              TextButton(
+                onPressed: () => Navigator.pop(ctx, true),
+                style: TextButton.styleFrom(foregroundColor: Colors.red),
+                child: const Text("Eliminar"),
+              ),
+            ],
+          ),
+    );
+
+    if (confirmed != true) return;
+
+    try {
+      final result = await apiService.delete('/comments/$commentId/');
+
+      if (result.success) {
+        _loadComments();
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text("Comentario eliminado")),
+          );
+        }
+      } else {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                result.message ?? "Error al eliminar comentario",
+              ),
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text("Error: $e")));
+      }
+    }
+  }
+
+  bool _isOwnComment(dynamic comment) {
+    if (_currentUserId == null) return false;
+    return comment['userId'] == _currentUserId;
   }
 
   @override
@@ -162,65 +218,127 @@ class _CommentScreenState extends State<CommentScreen> {
                   itemCount: comments.length,
                   itemBuilder: (context, index) {
                     final comment = comments[index];
-                    final user = comment['user'] as Map<String, dynamic>?;
                     final userName =
-                        user != null
-                            ? '${user['name'] ?? ''} ${user['first_name'] ?? ''}'
-                                .trim()
-                            : "Usuario desconocido";
+                        comment['user_name'] ?? 'Usuario desconocido';
+                    final userPhoto = comment['user_profile_photo'];
 
                     final commentDate =
                         comment['created_at'] != null
                             ? DateTime.parse(comment['created_at'])
                             : null;
 
-                    return Card(
-                      margin: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 4,
+                    return Dismissible(
+                      key: Key('comment_${comment['id']}'),
+                      direction:
+                          _isOwnComment(comment)
+                              ? DismissDirection.endToStart
+                              : DismissDirection.none,
+                      background: Container(
+                        alignment: Alignment.centerRight,
+                        padding: const EdgeInsets.only(right: 24),
+                        color: Colors.red,
+                        child: const Icon(
+                          Icons.delete,
+                          color: Colors.white,
+                        ),
                       ),
-                      elevation: 1,
-                      child: Padding(
-                        padding: const EdgeInsets.all(12),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              children: [
-                                CircleAvatar(
-                                  backgroundColor: primaryColor.withOpacity(
-                                    0.2,
-                                  ),
-                                  child: const Icon(
-                                    Icons.person,
-                                    color: iconColor,
-                                  ),
-                                ),
-                                const SizedBox(width: 12),
-                                Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      userName,
-                                      style: const TextStyle(
-                                        fontWeight: FontWeight.bold,
-                                      ),
+                      confirmDismiss:
+                          (direction) =>
+                              _deleteComment(comment['id']).then(
+                                (v) => false,
+                              ),
+                      child: Card(
+                        margin: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 4,
+                        ),
+                        elevation: 1,
+                        child: Padding(
+                          padding: const EdgeInsets.all(12),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  CircleAvatar(
+                                    backgroundColor: primaryColor.withOpacity(
+                                      0.2,
                                     ),
-                                    if (commentDate != null)
-                                      Text(
-                                        _formatDate(commentDate),
-                                        style: const TextStyle(
-                                          fontSize: 12,
-                                          color: Colors.grey,
+                                    backgroundImage:
+                                        userPhoto != null &&
+                                                userPhoto.toString().isNotEmpty
+                                            ? CachedNetworkImageProvider(
+                                              userPhoto.toString(),
+                                            )
+                                            : null,
+                                    child:
+                                        userPhoto == null ||
+                                                userPhoto.toString().isEmpty
+                                            ? const Icon(
+                                              Icons.person,
+                                              color: iconColor,
+                                            )
+                                            : null,
+                                  ),
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          userName,
+                                          style: const TextStyle(
+                                            fontWeight: FontWeight.bold,
+                                          ),
                                         ),
+                                        if (commentDate != null)
+                                          Text(
+                                            _formatDate(commentDate),
+                                            style: const TextStyle(
+                                              fontSize: 12,
+                                              color: Colors.grey,
+                                            ),
+                                          ),
+                                      ],
+                                    ),
+                                  ),
+                                  if (_isOwnComment(comment))
+                                    PopupMenuButton<String>(
+                                      icon: const Icon(
+                                        Icons.more_vert,
+                                        size: 20,
+                                        color: Colors.grey,
                                       ),
-                                  ],
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 8),
-                            Text(comment['comment'] ?? ''),
-                          ],
+                                      onSelected: (value) {
+                                        if (value == 'delete') {
+                                          _deleteComment(comment['id']);
+                                        }
+                                      },
+                                      itemBuilder:
+                                          (ctx) => [
+                                            const PopupMenuItem(
+                                              value: 'delete',
+                                              child: Row(
+                                                children: [
+                                                  Icon(
+                                                    Icons.delete,
+                                                    color: Colors.red,
+                                                    size: 18,
+                                                  ),
+                                                  SizedBox(width: 8),
+                                                  Text("Eliminar"),
+                                                ],
+                                              ),
+                                            ),
+                                          ],
+                                    ),
+                                ],
+                              ),
+                              const SizedBox(height: 8),
+                              Text(comment['comment'] ?? ''),
+                            ],
+                          ),
                         ),
                       ),
                     );
