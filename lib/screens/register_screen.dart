@@ -1,8 +1,5 @@
 import 'package:flutter/material.dart';
-import 'dart:convert';
-import 'package:http/http.dart' as http;
 import '../services/api_service.dart';
-
 const Color primaryColor = Color(0xFFD68F5E);
 
 class RegisterScreen extends StatefulWidget {
@@ -67,33 +64,24 @@ class _RegisterScreenState extends State<RegisterScreen> {
     });
 
     try {
-      final url = Uri.parse('$zipCodeApiUrl/codigo-postal/$cp');
-      final response = await http
-          .get(url)
-          .timeout(const Duration(seconds: 20))
-          .catchError((error) {
-            throw 'Error de conexión: $error';
-          });
+      final response = await apiService.getZipCodeInfo(cp);
 
-      if (response.statusCode == 200) {
-        final decodedData = jsonDecode(response.body);
-
-        // Accedemos a la llave 'data' según la estructura de la API
-        final List<dynamic> dataList = decodedData['data'] ?? [];
+      if (response.success) {
+        final List<dynamic> dataList = response.data ?? [];
 
         if (dataList.isNotEmpty) {
           setState(() {
-            // Mapeo exacto de los campos de la API
-            state = dataList[0]['d_estado'];
+            // Mapeo exacto de los campos de la nueva API (Supabase)
+            state = dataList[0]['estado'];
 
-            // Si d_ciudad viene vacío, usamos D_mnpio (municipio)
-            final String rawCity = dataList[0]['d_ciudad'] ?? '';
-            city = rawCity.isNotEmpty ? rawCity : dataList[0]['D_mnpio'];
+            // Si ciudad viene vacío o nulo, usamos municipio
+            final String rawCity = dataList[0]['ciudad'] ?? '';
+            city = rawCity.isNotEmpty ? rawCity : dataList[0]['municipio'] ?? '';
 
-            // Extraemos las colonias de 'd_asenta'
+            // Extraemos las colonias de 'colonia'
             colonies =
                 dataList.map<String>((item) {
-                  return item['d_asenta'].toString();
+                  return item['colonia'].toString();
                 }).toList();
 
             cpValid = true;
@@ -142,7 +130,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
         }
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error del servidor: ${response.statusCode}')),
+          SnackBar(content: Text(response.message ?? 'Error desconocido')),
         );
       }
     } catch (e) {

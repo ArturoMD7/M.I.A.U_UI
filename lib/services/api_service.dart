@@ -116,6 +116,42 @@ class ApiService {
     }
   }
 
+  Future<ApiResponse<List<dynamic>>> getZipCodeInfo(String cp) async {
+    try {
+      // Usamos zipCodeApiUrl que ya incluye el parámetro search_cp= o similar, 
+      // así que solo concatenamos el cp.
+      final String url = '$zipCodeApiUrl$cp';
+      final String supabaseKey = dotenv.env['SUPABASE_ANON_KEY'] ?? '';
+
+      final response = await http.get(
+        Uri.parse(url),
+        headers: {
+          'apikey': supabaseKey,
+          'Authorization': 'Bearer $supabaseKey',
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
+      ).timeout(const Duration(seconds: 15));
+
+      if (response.statusCode >= 200 && response.statusCode < 300) {
+        final decodedData = jsonDecode(response.body);
+        if (decodedData is List) {
+          return ApiResponse.success(decodedData);
+        } else if (decodedData is Map && decodedData.containsKey('data') && decodedData['data'] is List) {
+          return ApiResponse.success(decodedData['data'] as List<dynamic>);
+        } else {
+          return ApiResponse.success([]);
+        }
+      } else {
+        return ApiResponse.error('Error al obtener código postal: ${response.statusCode}');
+      }
+    } on TimeoutException {
+      return ApiResponse.error('Tiempo de espera agotado');
+    } catch (e) {
+      return ApiResponse.error('Error de conexión: ${e.toString()}');
+    }
+  }
+
   Future<ApiResponse<Map<String, dynamic>>> post(
     String endpoint, {
     Map<String, dynamic>? body,
