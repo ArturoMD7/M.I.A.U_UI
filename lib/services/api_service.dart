@@ -87,7 +87,7 @@ class ApiService {
     return headers;
   }
 
-  Future<ApiResponse<Map<String, dynamic>>> get(
+  Future<ApiResponse<dynamic>> get(
     String endpoint, {
     bool requiresAuth = true,
     Map<String, String>? queryParams,
@@ -152,7 +152,7 @@ class ApiService {
     }
   }
 
-  Future<ApiResponse<Map<String, dynamic>>> post(
+  Future<ApiResponse<dynamic>> post(
     String endpoint, {
     Map<String, dynamic>? body,
     bool requiresAuth = true,
@@ -176,7 +176,7 @@ class ApiService {
     }
   }
 
-  Future<ApiResponse<Map<String, dynamic>>> put(
+  Future<ApiResponse<dynamic>> put(
     String endpoint, {
     Map<String, dynamic>? body,
     bool requiresAuth = true,
@@ -200,7 +200,7 @@ class ApiService {
     }
   }
 
-  Future<ApiResponse<Map<String, dynamic>>> delete(
+  Future<ApiResponse<dynamic>> delete(
     String endpoint, {
     bool requiresAuth = true,
   }) async {
@@ -222,7 +222,7 @@ class ApiService {
     }
   }
 
-  Future<ApiResponse<Map<String, dynamic>>> multipartPut(
+  Future<ApiResponse<dynamic>> multipartPut(
     String endpoint, {
     Map<String, String>? fields,
     List<http.MultipartFile>? files,
@@ -260,7 +260,7 @@ class ApiService {
     }
   }
 
-  Future<ApiResponse<Map<String, dynamic>>> multipartPost(
+  Future<ApiResponse<dynamic>> multipartPost(
     String endpoint, {
     Map<String, String>? fields,
     List<http.MultipartFile>? files,
@@ -298,10 +298,10 @@ class ApiService {
     }
   }
 
-  ApiResponse<Map<String, dynamic>> _handleResponse(http.Response response) {
+  ApiResponse<dynamic> _handleResponse(http.Response response) {
     if (response.statusCode >= 200 && response.statusCode < 300) {
       if (response.body.isEmpty) {
-        final result = ApiResponse<Map<String, dynamic>>.success({});
+        final result = ApiResponse<dynamic>.success({});
         result.statusCode = response.statusCode;
         return result;
       }
@@ -309,17 +309,17 @@ class ApiService {
       try {
         final json = jsonDecode(response.body);
         if (json is List) {
-          final result = ApiResponse<Map<String, dynamic>>.success({
+          final result = ApiResponse<dynamic>.success({
             'data': json,
           });
           result.statusCode = response.statusCode;
           return result;
         }
-        final result = ApiResponse<Map<String, dynamic>>.fromJson(json);
+        final result = ApiResponse<dynamic>.fromJson(json);
         result.statusCode = response.statusCode;
         return result;
       } catch (e) {
-        final result = ApiResponse<Map<String, dynamic>>.success({});
+        final result = ApiResponse<dynamic>.success({});
         result.statusCode = response.statusCode;
         return result;
       }
@@ -329,7 +329,7 @@ class ApiService {
     debugPrint("Error response body: ${response.body}");
     try {
       final json = jsonDecode(response.body);
-      final apiResponse = ApiResponse<Map<String, dynamic>>.fromJson(json);
+      final apiResponse = ApiResponse<dynamic>.fromJson(json);
       if (apiResponse.message != null) {
         errorMessage = apiResponse.message!;
       }
@@ -337,7 +337,7 @@ class ApiService {
       errorMessage = 'Error del servidor: ${response.statusCode}';
     }
 
-    final errorResult = ApiResponse<Map<String, dynamic>>.error(errorMessage);
+    final errorResult = ApiResponse<dynamic>.error(errorMessage);
     errorResult.statusCode = response.statusCode;
     return errorResult;
   }
