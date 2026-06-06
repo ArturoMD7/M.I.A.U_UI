@@ -196,7 +196,7 @@ class _ChatScreenState extends State<ChatScreen> {
                           final message = messages[index];
                           final isMe =
                               message['sender']['id'] ==
-                              prefs.getInt('user_id');
+                              int.tryParse(prefs.getString('user_id') ?? '');
                           return MessageBubble(
                             message: message['content'],
                             isMe: isMe,

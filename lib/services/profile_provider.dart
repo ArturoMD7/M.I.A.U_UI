@@ -42,11 +42,15 @@ class ProfileProvider with ChangeNotifier {
     super.dispose();
   }
 
-  Future<void> initialize() async {
-    if (_state.userInfo != null) return;
+  Future<void> initialize({bool forceRefresh = false}) async {
+    if (!forceRefresh && _state.userInfo != null) return;
 
     await _loadProfilePhotoUrl();
     await _loadUserInfo();
+  }
+
+  Future<void> refreshProfile() async {
+    await initialize(forceRefresh: true);
   }
 
   Future<void> uploadImage() async {
@@ -88,17 +92,16 @@ class ProfileProvider with ChangeNotifier {
         final responseData = await response.stream.bytesToString();
         final data = jsonDecode(responseData);
 
+        await _loadUserInfo();
+
         if (data['profilePhoto'] != null) {
-          // Manejar tanto URLs relativas como absolutas
           String imageUrl = data['profilePhoto'];
 
-          // Si es una URL relativa, añadir el baseUrl
           if (!imageUrl.startsWith('http')) {
             imageUrl =
                 '$baseUrl${imageUrl.startsWith('/') ? imageUrl.substring(1) : imageUrl}';
           }
 
-          // Añadir timestamp para evitar caché
           final cachedImageUrl = '$imageUrl?$timestamp';
 
           await prefs.setString('profilePhotoUrl_$userId', imageUrl);
@@ -157,9 +160,21 @@ class ProfileProvider with ChangeNotifier {
         final userInfo = jsonDecode(response.body);
         _updateState(userInfo: userInfo);
 
-        // Guardar userId
         final prefs = await SharedPreferences.getInstance();
         await prefs.setString('userId', userInfo['id']?.toString() ?? '');
+        await prefs.setString('user_state', userInfo['state']?.toString() ?? '');
+        await prefs.setString('user_city', userInfo['city']?.toString() ?? '');
+
+        final profilePhoto = userInfo['profile_picture'];
+        if (profilePhoto != null && profilePhoto.toString().isNotEmpty) {
+          String imageUrl = profilePhoto.toString();
+          if (!imageUrl.startsWith('http')) {
+            imageUrl = '$baseUrl${imageUrl.startsWith('/') ? imageUrl.substring(1) : imageUrl}';
+          }
+          final cachedUrl = '$imageUrl?${DateTime.now().millisecondsSinceEpoch}';
+          await prefs.setString('profilePhotoUrl_${userInfo['id']?.toString() ?? ''}', imageUrl);
+          _updateState(profilePhotoUrl: cachedUrl);
+        }
       } else {
         _updateState(errorMessage: 'Error cargando información');
       }

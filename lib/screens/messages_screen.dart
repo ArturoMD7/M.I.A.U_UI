@@ -90,7 +90,7 @@ class _MessagesScreenState extends State<MessagesScreen> {
   }
 
   void _navigateToChat(dynamic chatData) {
-    final currentUserId = prefs.getInt('user_id');
+    final currentUserId = int.tryParse(prefs.getString('user_id') ?? '');
     final otherUser = chatData['participants'].firstWhere(
       (user) => user['id'] != currentUserId,
       orElse: () => null,

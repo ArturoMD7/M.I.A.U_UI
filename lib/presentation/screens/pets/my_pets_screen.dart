@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:miauuic/core/constants/app_colors.dart';
 import 'package:miauuic/core/constants/app_dimens.dart';
 import 'package:miauuic/widgets/common/indicators.dart';
@@ -32,6 +33,17 @@ class MyPetsScreenState extends State<MyPetsScreen> {
     1: AppColors.adoptPetColor,
     2: AppColors.warning,
   };
+
+  String? _getPetImageUrl(Map<String, dynamic> pet) {
+    final possibleKeys = ['image', 'imagePath', 'photo', 'profile_picture', 'imageUrl'];
+    for (final key in possibleKeys) {
+      final value = pet[key];
+      if (value != null && value.toString().isNotEmpty) {
+        return apiService.getFullMediaUrl(value.toString());
+      }
+    }
+    return null;
+  }
 
   @override
   void initState() {
@@ -103,8 +115,11 @@ class MyPetsScreenState extends State<MyPetsScreen> {
       final result = await apiService.delete('/pets/$petId/');
 
       if (result.success) {
+        final token = await _getToken();
+        if (token != null && mounted) {
+          await Provider.of<PetProvider>(context, listen: false).fetchPets(token, forceRefresh: true);
+        }
         if (mounted) {
-          Provider.of<PetProvider>(context, listen: false).removePet(petId);
           ScaffoldMessenger.of(
             context,
           ).showSnackBar(const SnackBar(content: Text('Mascota eliminada')));
@@ -120,6 +135,7 @@ class MyPetsScreenState extends State<MyPetsScreen> {
   }
 
   void _showPetDetails(Map<String, dynamic> pet) {
+    final imageUrl = _getPetImageUrl(pet);
     showDialog(
       context: context,
       builder:
@@ -130,17 +146,28 @@ class MyPetsScreenState extends State<MyPetsScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  if (pet['imagePath'] != null)
+                  if (imageUrl != null)
                     Center(
-                      child: Image.network(
-                        pet['imagePath'],
-                        height: 150,
-                        errorBuilder:
-                            (context, error, stackTrace) => const Icon(
-                              Icons.pets,
-                              size: 100,
-                              color: Colors.grey,
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(12),
+                        child: CachedNetworkImage(
+                          imageUrl: imageUrl,
+                          height: 150,
+                          width: double.infinity,
+                          fit: BoxFit.cover,
+                          placeholder: (context, url) => Container(
+                            height: 150,
+                            color: Colors.grey[200],
+                            child: const Center(
+                              child: CircularProgressIndicator(color: AppColors.primary),
                             ),
+                          ),
+                          errorWidget: (context, url, error) => Container(
+                            height: 150,
+                            color: Colors.grey[200],
+                            child: const Icon(Icons.pets, size: 60, color: Colors.grey),
+                          ),
+                        ),
                       ),
                     ),
                   const SizedBox(height: 16),
@@ -302,11 +329,23 @@ class _PetCard extends StatelessWidget {
     required this.onDelete,
   });
 
+  String? _getPetImageUrl() {
+    final possibleKeys = ['image', 'imagePath', 'photo', 'profile_picture', 'imageUrl'];
+    for (final key in possibleKeys) {
+      final value = pet[key];
+      if (value != null && value.toString().isNotEmpty) {
+        return apiService.getFullMediaUrl(value.toString());
+      }
+    }
+    return null;
+  }
+
   @override
   Widget build(BuildContext context) {
     final status = pet['statusAdoption'] ?? 2;
     final statusText = statusTexts[status] ?? 'Desconocido';
     final statusColor = statusColors[status] ?? Colors.grey;
+    final imageUrl = _getPetImageUrl();
 
     return Container(
       margin: const EdgeInsets.only(bottom: AppDimens.paddingMedium),
@@ -332,26 +371,52 @@ class _PetCard extends StatelessWidget {
               children: [
                 Row(
                   children: [
-                    if (pet['imagePath'] != null)
+                    if (imageUrl != null)
                       ClipRRect(
                         borderRadius: BorderRadius.circular(
                           AppDimens.radiusMedium,
                         ),
-                        child: Image.network(
-                          pet['imagePath'],
+                        child: CachedNetworkImage(
+                          imageUrl: imageUrl,
                           width: AppDimens.avatarLarge,
                           height: AppDimens.avatarLarge,
                           fit: BoxFit.cover,
-                          errorBuilder:
-                              (context, error, stackTrace) => Container(
-                                width: AppDimens.avatarLarge,
-                                height: AppDimens.avatarLarge,
-                                color: AppColors.primary.withAlpha(26),
-                                child: const Icon(
-                                  Icons.pets,
-                                  color: AppColors.primary,
-                                ),
+                          placeholder: (context, url) => Container(
+                            width: AppDimens.avatarLarge,
+                            height: AppDimens.avatarLarge,
+                            color: AppColors.primary.withAlpha(26),
+                            child: const Center(
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: AppColors.primary,
                               ),
+                            ),
+                          ),
+                          errorWidget: (context, url, error) => Container(
+                            width: AppDimens.avatarLarge,
+                            height: AppDimens.avatarLarge,
+                            color: AppColors.primary.withAlpha(26),
+                            child: const Icon(
+                              Icons.pets,
+                              color: AppColors.primary,
+                            ),
+                          ),
+                        ),
+                      )
+                    else
+                      Container(
+                        width: AppDimens.avatarLarge,
+                        height: AppDimens.avatarLarge,
+                        decoration: BoxDecoration(
+                          color: AppColors.primary.withAlpha(26),
+                          borderRadius: BorderRadius.circular(
+                            AppDimens.radiusMedium,
+                          ),
+                        ),
+                        child: const Icon(
+                          Icons.pets,
+                          color: AppColors.primary,
+                          size: 32,
                         ),
                       ),
                     const SizedBox(width: AppDimens.paddingMedium),

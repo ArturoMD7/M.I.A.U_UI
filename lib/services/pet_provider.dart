@@ -131,4 +131,9 @@ class PetProvider with ChangeNotifier {
     _currentToken = null;
     _errorMessage = null;
   }
+
+  void updatePetsFromServer(List<dynamic> pets) {
+    _pets = pets;
+    notifyListeners();
+  }
 }

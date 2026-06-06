@@ -11,11 +11,12 @@ import 'screens/messages_screen.dart';
 import 'presentation/screens/main_shell.dart';
 import 'services/pet_provider.dart';
 import 'services/theme_provider.dart';
+import 'services/auth_provider.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:intl/date_symbol_data_local.dart';
 
 void main() async {
-  WidgetsFlutterBinding.ensureInitialized(); //Al usar await esta linea es obligatoria de usar
+  WidgetsFlutterBinding.ensureInitialized();
 
   await dotenv.load(fileName: ".env");
   await initializeDateFormatting('es', null);
@@ -23,7 +24,6 @@ void main() async {
   runApp(const MyApp());
 }
 
-// Colores principales
 const Color primaryColor = Colors.blueAccent;
 const Color darkPrimaryColor = Color(0xFF1565C0);
 const Color backgroundColor = Colors.white;
@@ -50,112 +50,46 @@ class ColorBlindnessFilter extends StatelessWidget {
       return child;
     }
 
-    // Matrices de filtro para diferentes tipos de daltonismo
     final List<double> filterMatrix;
     switch (type) {
       case ColorBlindnessType.protanopia:
         filterMatrix = [
-          0.567,
-          0.433,
-          0.000,
-          0,
-          0,
-          0.558,
-          0.442,
-          0.000,
-          0,
-          0,
-          0.000,
-          0.242,
-          0.758,
-          0,
-          0,
-          0,
-          0,
-          0,
-          1,
-          0,
+          0.567, 0.433, 0.000, 0, 0,
+          0.558, 0.442, 0.000, 0, 0,
+          0.000, 0.242, 0.758, 0, 0,
+          0, 0, 0, 1, 0,
         ];
         break;
       case ColorBlindnessType.deuteranopia:
         filterMatrix = [
-          0.625,
-          0.375,
-          0.000,
-          0,
-          0,
-          0.700,
-          0.300,
-          0.000,
-          0,
-          0,
-          0.000,
-          0.300,
-          0.700,
-          0,
-          0,
-          0,
-          0,
-          0,
-          1,
-          0,
+          0.625, 0.375, 0.000, 0, 0,
+          0.700, 0.300, 0.000, 0, 0,
+          0.000, 0.300, 0.700, 0, 0,
+          0, 0, 0, 1, 0,
         ];
         break;
       case ColorBlindnessType.tritanopia:
         filterMatrix = [
-          0.950,
-          0.050,
-          0.000,
-          0,
-          0,
-          0.000,
-          0.433,
-          0.567,
-          0,
-          0,
-          0.000,
-          0.475,
-          0.525,
-          0,
-          0,
-          0,
-          0,
-          0,
-          1,
-          0,
+          0.950, 0.050, 0.000, 0, 0,
+          0.000, 0.433, 0.567, 0, 0,
+          0.000, 0.475, 0.525, 0, 0,
+          0, 0, 0, 1, 0,
         ];
         break;
       case ColorBlindnessType.achromatopsia:
         filterMatrix = [
-          0.299,
-          0.587,
-          0.114,
-          0,
-          0,
-          0.299,
-          0.587,
-          0.114,
-          0,
-          0,
-          0.299,
-          0.587,
-          0.114,
-          0,
-          0,
-          0,
-          0,
-          0,
-          1,
-          0,
+          0.299, 0.587, 0.114, 0, 0,
+          0.299, 0.587, 0.114, 0, 0,
+          0.299, 0.587, 0.114, 0, 0,
+          0, 0, 0, 1, 0,
         ];
         break;
       default:
         return child;
     }
 
-    // Aplicar severidad (interpolar entre matriz de identidad y la matriz de filtro)
     final List<double> finalMatrix = List<double>.generate(20, (index) {
-      if (index % 5 == 4) return 0; // No cambiar la columna de offset
+      if (index % 5 == 4) return 0;
       final identityValue = index % 5 == index ~/ 5 ? 1.0 : 0.0;
       return identityValue + (filterMatrix[index] - identityValue) * severity;
     });
@@ -174,6 +108,7 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MultiProvider(
       providers: [
+        ChangeNotifierProvider(create: (_) => AuthProvider()),
         ChangeNotifierProvider(create: (_) => PetProvider()),
         ChangeNotifierProvider(create: (_) => ThemeProvider()),
       ],
@@ -322,9 +257,8 @@ class MyApp extends StatelessWidget {
                 ),
               ),
               themeMode: themeProvider.themeMode,
-              initialRoute: '/',
+              home: const AuthWrapper(),
               routes: {
-                '/': (context) => const LoginScreen(),
                 '/register': (context) => const RegisterScreen(),
                 '/home': (context) => const MainShell(),
                 '/qr': (context) => const QRScreen(),
@@ -332,12 +266,90 @@ class MyApp extends StatelessWidget {
                 '/profile': (context) => const ProfileScreen(),
                 '/messages': (context) => const MessagesScreen(),
                 '/create-pet': (context) => const CreatePetScreen(),
-                '/recovery-password':
-                    (context) => const RecoveryPasswordScreen(),
+                '/recovery-password': (context) => const RecoveryPasswordScreen(),
               },
             ),
           );
         },
+      ),
+    );
+  }
+}
+
+class AuthWrapper extends StatefulWidget {
+  const AuthWrapper({super.key});
+
+  @override
+  State<AuthWrapper> createState() => _AuthWrapperState();
+}
+
+class _AuthWrapperState extends State<AuthWrapper> {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      context.read<AuthProvider>().checkAuth();
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Consumer<AuthProvider>(
+      builder: (context, auth, _) {
+        switch (auth.status) {
+          case AuthStatus.unknown:
+            return const _SplashScreen();
+          case AuthStatus.authenticated:
+            return const MainShell();
+          case AuthStatus.unauthenticated:
+            return const LoginScreen();
+        }
+      },
+    );
+  }
+}
+
+class _SplashScreen extends StatelessWidget {
+  const _SplashScreen();
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: primaryColor,
+      body: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              width: 120,
+              height: 120,
+              decoration: const BoxDecoration(
+                color: Colors.white,
+                shape: BoxShape.circle,
+              ),
+              child: Center(
+                child: Image.asset(
+                  'assets/images/logomiau.png',
+                  width: 80,
+                  fit: BoxFit.contain,
+                ),
+              ),
+            ),
+            const SizedBox(height: 24),
+            const Text(
+              'M.I.A.U',
+              style: TextStyle(
+                fontSize: 32,
+                fontWeight: FontWeight.bold,
+                color: Colors.white,
+              ),
+            ),
+            const SizedBox(height: 32),
+            const CircularProgressIndicator(
+              valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+            ),
+          ],
+        ),
       ),
     );
   }

@@ -12,6 +12,7 @@ import 'package:miauuic/widgets/common/indicators.dart';
 import 'package:miauuic/widgets/common/avatars.dart';
 import 'package:miauuic/services/api_service.dart';
 import 'package:miauuic/screens/comment_screen.dart';
+import 'package:miauuic/screens/chat_screen.dart';
 import 'package:miauuic/screens/messages_screen.dart';
 import 'package:miauuic/screens/create_pet_screen.dart';
 import 'package:intl/intl.dart';
@@ -122,6 +123,7 @@ class _HomeScreenState extends State<HomeScreen> {
                               .toList()
                           : <String>[],
                   'user': {
+                    'id': post['userId'],
                     'name': post['user_name'] ?? '',
                     'first_name': '',
                     'profilePhoto': post['user_profile_photo'],
@@ -498,7 +500,10 @@ class _HomeScreenState extends State<HomeScreen> {
               post: _posts[i],
               currentUserId: _currentUserId,
               onComment: () => _openComments(_posts[i]['id']),
-              onMessage: () => _openMessage(_posts[i]['user']),
+              onMessage:
+                  _posts[i]['userId'] == _currentUserId
+                      ? null
+                      : () => _openMessage(_posts[i]['user']),
               onDelete:
                   _posts[i]['userId'] == _currentUserId
                       ? () => _deletePost(_posts[i]['id'])
@@ -508,14 +513,18 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  void _openComments(int id) => Navigator.push(
+void _openComments(int id) => Navigator.push(
     context,
     MaterialPageRoute(builder: (c) => CommentScreen(postId: id)),
   );
+
   void _openMessage(dynamic u) async {
     final prefs = await SharedPreferences.getInstance();
     final uidStr = prefs.getString('user_id');
-    if (uidStr == null) {
+    final currentUserId = int.tryParse(uidStr ?? '') ?? 0;
+    final token = prefs.getString('jwt_token');
+
+    if (token == null) {
       if (mounted) {
         ScaffoldMessenger.of(
           context,
@@ -523,17 +532,117 @@ class _HomeScreenState extends State<HomeScreen> {
       }
       return;
     }
-    if (mounted) {
-      Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder:
-              (c) => MessagesScreen(
-                initialRecipientId: u['id'],
-                initialRecipientName: u['name'] ?? 'Usuario',
+
+    final dynamic rawRecipientId = u['id'];
+    if (rawRecipientId == null) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('No se pudo identificar al usuario')));
+      }
+      return;
+    }
+    final int recipientId = rawRecipientId is int ? rawRecipientId : int.tryParse(rawRecipientId.toString()) ?? 0;
+    final rawName = '${u['name'] ?? ''} ${u['first_name'] ?? ''}'.trim();
+    final recipientName = rawName.isEmpty ? 'Usuario' : rawName;
+
+    if (recipientId == currentUserId) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('No puedes enviarte un mensaje a ti mismo')),
+        );
+      }
+      return;
+    }
+
+    try {
+      final chatsResponse = await apiService.get('/chats/');
+      if (chatsResponse.success && chatsResponse.data != null) {
+        List<dynamic> chats;
+        if (chatsResponse.data is List) {
+          chats = chatsResponse.data as List<dynamic>;
+        } else if (chatsResponse.data!['data'] != null) {
+          chats = chatsResponse.data!['data'] as List<dynamic>;
+        } else {
+          chats = [];
+        }
+
+        dynamic existingChat;
+        try {
+          existingChat = chats.firstWhere(
+            (chat) {
+              final participants = chat['participants'] as List<dynamic>?;
+              if (participants == null) return false;
+              return participants.any(
+                (participant) {
+                  final pid = participant['id'];
+                  final int pIdInt = pid is int ? pid : int.tryParse(pid.toString()) ?? -1;
+                  return pIdInt == recipientId;
+                },
+              );
+            },
+          );
+        } catch (_) {
+          existingChat = null;
+        }
+
+        if (existingChat != null) {
+          final chatId = existingChat['id'] is int
+              ? existingChat['id'] as int
+              : int.tryParse(existingChat['id'].toString()) ?? 0;
+          if (mounted) {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (c) => ChatScreen(
+                  chatId: chatId,
+                  recipientName: recipientName,
+                ),
               ),
-        ),
+            );
+          }
+          return;
+        }
+      }
+
+      final createResponse = await http.post(
+        Uri.parse('${apiService.baseUrl}/chats/'),
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Content-Type': 'application/json',
+        },
+        body: jsonEncode({'participant_id': recipientId}),
       );
+
+      if (createResponse.statusCode == 201 || createResponse.statusCode == 200) {
+        final newChat = jsonDecode(createResponse.body);
+        final chatId = newChat['id'] is int
+            ? newChat['id'] as int
+            : int.tryParse(newChat['id'].toString()) ?? 0;
+        if (mounted) {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (c) => ChatScreen(
+                chatId: chatId,
+                recipientName: recipientName,
+              ),
+            ),
+          );
+        }
+      } else {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('No se pudo iniciar la conversación')),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Error: $e')));
+      }
     }
   }
 }
@@ -541,13 +650,14 @@ class _HomeScreenState extends State<HomeScreen> {
 class _PostCard extends StatelessWidget {
   final dynamic post;
   final int currentUserId;
-  final VoidCallback onComment, onMessage;
+  final VoidCallback onComment;
+  final VoidCallback? onMessage;
   final VoidCallback? onDelete;
   const _PostCard({
     required this.post,
     required this.currentUserId,
     required this.onComment,
-    required this.onMessage,
+    this.onMessage,
     this.onDelete,
   });
 
@@ -709,14 +819,15 @@ class _PostCard extends StatelessWidget {
                   label: const Text('Comentar'),
                   onPressed: onComment,
                 ),
-                TextButton.icon(
-                  icon: const Icon(
-                    Icons.message,
-                    color: AppColors.adoptPetColor,
+                if (onMessage != null)
+                  TextButton.icon(
+                    icon: const Icon(
+                      Icons.message,
+                      color: AppColors.adoptPetColor,
+                    ),
+                    label: const Text('Mensaje'),
+                    onPressed: onMessage,
                   ),
-                  label: const Text('Mensaje'),
-                  onPressed: onMessage,
-                ),
                 if (onDelete != null)
                   TextButton.icon(
                     icon: const Icon(Icons.delete_outline, color: Colors.red),

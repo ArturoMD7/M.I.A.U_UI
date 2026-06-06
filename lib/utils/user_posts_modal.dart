@@ -40,7 +40,7 @@ class _UserPostsModalState extends State<UserPostsModal> {
     try {
       final prefs = await SharedPreferences.getInstance();
       final token = prefs.getString('jwt_token');
-      final userId = prefs.getInt('user_id');
+      final userId = int.tryParse(prefs.getString('user_id') ?? '');
 
       if (token == null || userId == null) {
         throw Exception("Debes iniciar sesión");

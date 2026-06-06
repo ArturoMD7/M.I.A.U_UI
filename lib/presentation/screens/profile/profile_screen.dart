@@ -9,6 +9,7 @@ import 'package:miauuic/core/constants/app_colors.dart';
 import 'package:miauuic/core/constants/app_dimens.dart';
 import 'package:miauuic/services/profile_provider.dart';
 import 'package:miauuic/services/theme_provider.dart';
+import 'package:miauuic/services/auth_provider.dart';
 import 'package:miauuic/utils/user_posts_modal.dart';
 import '../../../services/api_service.dart';
 import 'package:miauuic/screens/messages_screen.dart';
@@ -32,29 +33,25 @@ class ProfileScreenState extends State<ProfileScreen> {
           (context) => AlertDialog(
             title: const Text('Cerrar sesión'),
             content: const Text('¿Estás seguro de que quieres cerrar sesión?'),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(context, false),
-                child: const Text('Cancelar'),
-              ),
-              ElevatedButton(
-                onPressed: () => Navigator.pop(context, true),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.red,
-                  foregroundColor: Colors.white,
-                ),
-                child: const Text('Cerrar sesión'),
-              ),
-            ],
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancelar'),
           ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red,
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('Cerrar sesión'),
+          ),
+        ],
+      ),
     );
 
     if (confirmed == true && mounted) {
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.clear();
-      if (mounted) {
-        Navigator.pushNamedAndRemoveUntil(context, '/', (route) => false);
-      }
+      context.read<AuthProvider>().logout(context);
     }
   }
 
@@ -309,8 +306,10 @@ class _ProfileContent extends StatelessWidget {
                 MaterialPageRoute(
                   builder: (context) => _EditProfileScreen(userInfo: userData),
                 ),
-              ).then((_) {
-                provider.initialize();
+              ).then((refreshed) {
+                if (refreshed == true) {
+                  provider.refreshProfile();
+                }
               });
             },
           ),
@@ -948,13 +947,15 @@ class _EditProfileScreenState extends State<_EditProfileScreen> {
       );
 
       if (result.success) {
+        await apiService.get('/users/me/');
+
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
               content: Text('Información actualizada correctamente'),
             ),
           );
-          Navigator.pop(context);
+          Navigator.pop(context, true);
         }
       } else {
         throw Exception(result.message ?? 'Error al actualizar');

@@ -3,9 +3,11 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:http/http.dart' as http;
+import 'package:provider/provider.dart';
 
 import 'package:shared_preferences/shared_preferences.dart';
 import '../services/api_service.dart';
+import '../services/pet_provider.dart';
 
 const Color primaryColor = Color(0xFFD0894B);
 
@@ -121,6 +123,30 @@ class _CreatePetScreenState extends State<CreatePetScreen> {
           (!isEditing && response.statusCode != 201)) {
         throw Exception("Error: ${response.body}");
       }
+
+      try {
+        final prefs = await SharedPreferences.getInstance();
+        final storedToken = prefs.getString('jwt_token');
+
+        if (storedToken != null && mounted) {
+          final petResult = await apiService.get('/pets/my-pets/');
+          if (petResult.success && petResult.data != null) {
+            List<dynamic> petsData;
+            if (petResult.data is List) {
+              petsData = petResult.data as List<dynamic>;
+            } else if (petResult.data!['data'] != null) {
+              petsData = petResult.data!['data'] as List<dynamic>;
+            } else {
+              petsData = [];
+            }
+
+            if (mounted) {
+              final petProvider = Provider.of<PetProvider>(context, listen: false);
+              petProvider.updatePetsFromServer(petsData);
+            }
+          }
+        }
+      } catch (_) {}
 
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(

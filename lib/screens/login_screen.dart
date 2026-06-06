@@ -1,13 +1,12 @@
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:provider/provider.dart';
 import '../services/api_service.dart';
+import '../services/auth_provider.dart';
 
-// Colores principales
 const Color primaryColor = Color(0xFFD68F5E);
 const Color textColor = Colors.black;
 const Color accentColor = Colors.blue;
 
-// Estilos de texto
 final TextStyle titleStyle = const TextStyle(
   fontSize: 28,
   fontWeight: FontWeight.bold,
@@ -67,21 +66,13 @@ class _LoginScreenState extends State<LoginScreen> {
         final accessToken = result.data!['access']?.toString() ?? '';
         final refreshToken = result.data!['refresh']?.toString() ?? '';
         final userData = result.data!['user'] as Map<String, dynamic>?;
-        final String userEmail = userData?['email']?.toString() ?? 'Sin email';
-
-        final prefs = await SharedPreferences.getInstance();
-        await prefs.setString('jwt_token', accessToken);
-        await prefs.setString('refresh_token', refreshToken);
-        if (userData != null && userData['id'] != null) {
-          await prefs.setString('user_id', userData['id'].toString());
-        }
-        await prefs.setString('user_email', userEmail);
 
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Inicio de sesión exitoso')),
-          );
-          Navigator.pushNamedAndRemoveUntil(context, '/home', (route) => false);
+          await context.read<AuthProvider>().login(
+                accessToken,
+                refreshToken,
+                userData,
+              );
         }
       } else {
         if (mounted) {
@@ -104,13 +95,11 @@ class _LoginScreenState extends State<LoginScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // Obtenemos el tamaño de la pantalla para hacer dimensiones dinámicas
     final size = MediaQuery.sizeOf(context);
 
     return Scaffold(
       body: SafeArea(
         child: Center(
-          // SingleChildScrollView evita el error de overflow con el teclado
           child: SingleChildScrollView(
             padding: const EdgeInsets.symmetric(
               horizontal: 24.0,
@@ -122,11 +111,9 @@ class _LoginScreenState extends State<LoginScreen> {
                 mainAxisAlignment: MainAxisAlignment.center,
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  // Logo responsivo
                   Align(
                     alignment: Alignment.center,
                     child: Container(
-                      // El contenedor tomará el 40% del ancho de la pantalla, con un máximo de 200
                       width: size.width * 0.4,
                       height: size.width * 0.4,
                       constraints: const BoxConstraints(
@@ -146,7 +133,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       ),
                     ),
                   ),
-                  SizedBox(height: size.height * 0.03), // Espaciado relativo
+                  SizedBox(height: size.height * 0.03),
                   Text(
                     "M.I.A.U",
                     style: titleStyle,
@@ -209,16 +196,16 @@ class _LoginScreenState extends State<LoginScreen> {
                   isLoading
                       ? const Center(child: CircularProgressIndicator())
                       : ElevatedButton(
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: primaryColor,
-                          padding: const EdgeInsets.symmetric(vertical: 16),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(8),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: primaryColor,
+                            padding: const EdgeInsets.symmetric(vertical: 16),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
                           ),
+                          onPressed: loginUser,
+                          child: Text("Iniciar Sesión", style: buttonTextStyle),
                         ),
-                        onPressed: loginUser,
-                        child: Text("Iniciar Sesión", style: buttonTextStyle),
-                      ),
                   SizedBox(height: size.height * 0.02),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.center,
