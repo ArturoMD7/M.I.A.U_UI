@@ -292,11 +292,11 @@ class _ProfileContent extends StatelessWidget {
       padding: const EdgeInsets.all(AppDimens.paddingLarge),
       child: Column(
         children: [
-          _ActionButton(
-            icon: Icons.article,
-            text: 'Mis publicaciones',
-            onPressed: () => _showUserPosts(context),
-          ),
+          // _ActionButton(
+          //   icon: Icons.article,
+          //   text: 'Mis publicaciones',
+          //   onPressed: () => _showUserPosts(context),
+          // ),
           _ActionButton(
             icon: Icons.edit,
             text: 'Editar Información',

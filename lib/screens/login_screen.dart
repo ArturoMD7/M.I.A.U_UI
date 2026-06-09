@@ -180,18 +180,18 @@ class _LoginScreenState extends State<LoginScreen> {
                       return null;
                     },
                   ),
-                  Align(
-                    alignment: Alignment.centerRight,
-                    child: TextButton(
-                      onPressed: () {
-                        Navigator.pushNamed(context, '/recovery-password');
-                      },
-                      child: const Text(
-                        "¿Olvidaste tu contraseña?",
-                        style: TextStyle(color: accentColor),
-                      ),
-                    ),
-                  ),
+                  // Align(
+                  //   alignment: Alignment.centerRight,
+                  //   child: TextButton(
+                  //     onPressed: () {
+                  //       Navigator.pushNamed(context, '/recovery-password');
+                  //     },
+                  //     child: const Text(
+                  //       "¿Olvidaste tu contraseña?",
+                  //       style: TextStyle(color: accentColor),
+                  //     ),
+                  //   ),
+                  // ),
                   SizedBox(height: size.height * 0.02),
                   isLoading
                       ? const Center(child: CircularProgressIndicator())
