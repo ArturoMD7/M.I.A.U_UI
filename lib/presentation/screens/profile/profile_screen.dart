@@ -323,13 +323,7 @@ class _ProfileContent extends StatelessWidget {
               );
             },
           ),
-          _ActionButton(
-            icon: Icons.qr_code,
-            text: 'Generar QR',
-            onPressed: () {
-              Navigator.pushNamed(context, '/qr');
-            },
-          ),
+
           _ActionButton(
             icon: Icons.delete_forever,
             text: 'Eliminar Cuenta',

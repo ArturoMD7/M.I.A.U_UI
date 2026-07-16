@@ -4,7 +4,6 @@ import 'screens/create_pet_screen.dart';
 import 'package:provider/provider.dart';
 import 'screens/login_screen.dart';
 import 'screens/register_screen.dart';
-import 'screens/qr_screen.dart';
 import 'screens/qr_scanner_screen.dart';
 import 'presentation/screens/profile/profile_screen.dart';
 import 'screens/messages_screen.dart';
@@ -261,7 +260,6 @@ class MyApp extends StatelessWidget {
               routes: {
                 '/register': (context) => const RegisterScreen(),
                 '/home': (context) => const MainShell(),
-                '/qr': (context) => const QRScreen(),
                 '/qr-scanner': (context) => const QRScannerScreen(),
                 '/profile': (context) => const ProfileScreen(),
                 '/messages': (context) => const MessagesScreen(),
